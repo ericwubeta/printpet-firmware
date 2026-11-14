@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here.
 
+## v1.6.0 — 2026-11-15 (PrintPet Core)
+
+- Add an optional second-page LAN JPEG camera preview with measured FPS, print status and dynamic aspect-ratio fitting. Configuration is stored per printer serial; earlier hardware tests cover X2D only.
+- Remember the selected printer and detail page across restart; restore AMS pages after topology arrives and fall back from the retired control-page slot.
+- Prevent historical completion notifications at startup and use MAC/random MQTT client IDs. Add print/USB wake events, camera suspension while dark and battery-idle deep sleep after ten eligible minutes.
+- Preserve paired certificate pins through ordinary settings changes; require an exact explicit re-pair flag and fail closed on incomplete NVS reads. Preserve the next independent key after a delayed wake and the previous valid image/geometry after untouched legacy decode failures.
+- Keep read-only monitoring and the shared identity-protected layout. Add native Windows regression support and allow the complete-package installer to validate Core 1.6.0.
+
+Build and host checks passed; this release binary/new layout has not been flashed or physically accepted. See [release notes](docs/RELEASE_CORE_1.6.0.md) for compatibility, power behavior and installation. Core 1.5.2 remains available as the compact 1.5.x option; Spirit 2.0.1 is unchanged.
+
+## v1.5.2 — 2026-11-14 (PrintPet Core)
+
+- Publish complete sparse installation/recovery packages with the application at 0x370000 and a read-only vendor identity partition; preserve settings and the 0x310000–0x36FFFF gap.
+- Add offline package validation and guarded install/upgrade transactions with per-device backup and readback checks. The release keeps the compact read-only 1.5.x UI.
+
+Build, host, package and simulated flash-transaction checks passed; physical validation of the new layout was not performed.
+
 ## v1.5.1 — 2026-11-13 (PrintPet Core)
 
 - Remove the printer-control page, selection/stop-confirmation state, pause/resume/stop APIs, chamber-light API and generic command publisher.

@@ -36,7 +36,7 @@ if(PRINTPET_UI_TESTS)
     add_executable(test_ui_readonly test_ui_readonly.c "${CORE_ROOT}/main/app_printer.c"
         "${CORE_ROOT}/main/camera_rate.c" "${CORE_ROOT}/main/hms_codes.c" "${CORE_ROOT}/main/font_zh14.c" "${CORE_ROOT}/main/font_zh20.c")
     target_include_directories(test_ui_readonly PRIVATE stubs "${CORE_ROOT}/main" "${CORE_ROOT}/components/bsp/include")
-    target_compile_definitions(test_ui_readonly PRIVATE FW_VERSION="1.5.2-host" CONFIG_CAMERA_STALE_MS=5000)
+    target_compile_definitions(test_ui_readonly PRIVATE FW_VERSION="1.6.0-host" CONFIG_CAMERA_STALE_MS=5000)
     if(MSVC)
         target_compile_options(test_ui_readonly PRIVATE /utf-8 /UNDEBUG "/FI${CMAKE_CURRENT_LIST_DIR}/stubs/compat.h")
         target_compile_definitions(test_ui_readonly PRIVATE _CRT_SECURE_NO_WARNINGS)

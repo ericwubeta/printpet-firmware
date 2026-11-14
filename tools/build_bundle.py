@@ -19,7 +19,10 @@ def main():
     (dest/'manifest.json').write_text(json.dumps(m,indent=2),encoding='utf-8')
     for src in (root/'tools/installer').glob('*'):
         if src.is_file():shutil.copy2(src,dest/src.name)
-    shutil.copy2(root/'docs/INSTALL.md',dest/'INSTALL.md');guard.validate(dest)
+    shutil.copy2(root/'docs/INSTALL.md',dest/'INSTALL.md')
+    release_notes=root/'docs'/f'RELEASE_{product.upper()}_{version}.md'
+    if release_notes.is_file():shutil.copy2(release_notes,dest/release_notes.name)
+    guard.validate(dest)
     (dest/'SHA256SUMS.txt').write_text(''.join(f'{sha(q)}  {q.relative_to(dest).as_posix()}\n' for q in sorted(dest.rglob('*')) if q.is_file()),encoding='utf-8')
     archive=a.output/f'PrintPet-{product}-{version}-install-recovery.zip'
     with zipfile.ZipFile(archive,'x',zipfile.ZIP_DEFLATED) as z:
