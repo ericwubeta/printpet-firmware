@@ -1,0 +1,125 @@
+{
+  "version": "2.0.1",
+  "format": "printpet-community-compressed-v1",
+  "communityImageBytes": 3211264,
+  "communityImageSha256": "3d95446bed0e2fae4982c4127b78bbc09243fce3e85b259764346ce36a98086d",
+  "bootloaderSha256": "e96a6ecf34ae551b1396544cccc6a056621b3e7da33fdef1c0de8a01ab1454df",
+  "partitionTableSha256": "24c0c3087457f81be878fd30144e806df84c4047e3b0dde894bbe2caf55c5492",
+  "sourceReleaseCommit": "68b69504c284c35e70f753013de151a700a83bde",
+  "applicationAndResourcesUnchanged": true,
+  "parts": [
+    {
+      "name": "application",
+      "source": 65536,
+      "destination": 3604480,
+      "rawBytes": 4159744,
+      "packedBytes": 2456120,
+      "rawSha256": "8ad4f4e69623e2ef236ba96bca1001ad3c84ac4d0e3ec0dfdbe857a5d3cfd277",
+      "packedSha256": "7f044a26e7ce40acb21f09461220115e5643e641d82f1eb047e4175c023114e9"
+    },
+    {
+      "name": "resources",
+      "source": 2523136,
+      "destination": 65536,
+      "rawBytes": 1029832,
+      "packedBytes": 671107,
+      "rawSha256": "b07a354f3fd0edcfe90c21381c00f5d341ddc831aaf08a604c74d8d5a801fd5d",
+      "packedSha256": "1d37e431f61d9d1041ab404170090afd2024bd5cdfdae5f4d8c43822cf30edf0"
+    }
+  ],
+  "protectedRange": [
+    3211264,
+    3604480
+  ],
+  "build": {
+    "result": "PASS",
+    "idf": "5.5",
+    "bootloaderBytes": 22464,
+    "dramBytes": 19244,
+    "dramLimitBytes": 20480
+  },
+  "nativeInflation": {
+    "result": "PASS",
+    "ABI": "32-bit",
+    "windowBytes": 2048,
+    "implementation": "Compatible upstream miniz v1.14, not asserted to be exact ROM source",
+    "corruptionCasesPerImage": 19
+  },
+  "interruptionModel": {
+    "result": "PASS",
+    "boundaryCuts": 3804,
+    "partialWriteCuts": 7608,
+    "vendorBytesUnchanged": true
+  },
+  "qemu": {
+    "firmwareSha256": "3d95446bed0e2fae4982c4127b78bbc09243fce3e85b259764346ce36a98086d",
+    "firstInstall": {
+      "passed": true,
+      "vendorChangedBytes": 0,
+      "applicationAndResourceReadbackMatches": true,
+      "completionMarkerMatches": true,
+      "qemuVersion": "QEMU emulator version 9.2.2 (esp_develop_9.2.2_20260417)"
+    },
+    "resumeChecks": {
+      "passed": true,
+      "cases": [
+        {
+          "phase": "application_incomplete",
+          "passed": true,
+          "partialPhaseCaptured": true,
+          "partialVendorUnchanged": true,
+          "finalVendorUnchanged": true,
+          "interruptedSeconds": 1.927,
+          "resumedSeconds": 10.148
+        },
+        {
+          "phase": "resources_incomplete",
+          "passed": true,
+          "partialPhaseCaptured": true,
+          "partialVendorUnchanged": true,
+          "finalVendorUnchanged": true,
+          "interruptedSeconds": 8.599,
+          "resumedSeconds": 3.252
+        }
+      ]
+    },
+    "actualDeviceUsed": false,
+    "physicalPowerLossTest": false,
+    "passed": true
+  },
+  "packagingSafetyTests": {
+    "result": "PASS",
+    "pythonOptimization": "-O",
+    "negativeCases": [
+      {
+        "case": "--application wrong.bin",
+        "rejected": true
+      },
+      {
+        "case": "--resources wrong.bin",
+        "rejected": true
+      },
+      {
+        "case": "--partitions wrong.bin",
+        "rejected": true
+      },
+      {
+        "case": "--bootloader wrong.bin",
+        "rejected": true
+      },
+      {
+        "case": "--bootloader stale-bootloader.bin",
+        "rejected": true
+      }
+    ],
+    "validPackageSha256": "3d95446bed0e2fae4982c4127b78bbc09243fce3e85b259764346ce36a98086d"
+  },
+  "deviceTested": false,
+  "physicalPowerLossTested": false,
+  "limitations": [
+    "Community installation resets NVS network/account settings.",
+    "Only the protected factory reservation is preserved; pre-existing identity loss is not repaired.",
+    "QEMU uses synthetic flash, not a physical device.",
+    "Compatible future app-only updates must leave the reserved spiffs suffix intact, or replace this bootloader."
+  ]
+}

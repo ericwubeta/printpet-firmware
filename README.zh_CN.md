@@ -2,6 +2,8 @@
 
 [English](README.md) | 简体中文
 
+本分支新增[保留原厂身份的社区单文件安装方式](docs/COMMUNITY-INSTALL.md)，首启解压并验证，应用与资源字节沿用已发布版；旧网络与账号配置会重置。历史 tag 和原分段 ZIP 保持不变。
+
 面向拓竹打印机的只读监控固件，运行于第三方FoloToy AI Passport（ESP32-C3、8MiB Flash、无PSRAM）。本项目不制造硬件，与FoloToy、Bambu Lab无官方关联。
 
 ## 两条固件，按喜好选择

@@ -2,6 +2,12 @@
 
 English | [简体中文](README.zh_CN.md)
 
+Community single-file installation is provided by this branch's
+[identity-preserving first-boot installer](docs/COMMUNITY-INSTALL.md). It keeps the
+released application/resources unchanged and preserves the factory identity
+reservation; old network/account configuration is reset. Historical tags and
+sparse ZIP packages remain unchanged.
+
 Read-only Bambu printer monitoring on third-party FoloToy AI Passport hardware: ESP32-C3, 8MiB flash, no PSRAM. No official FoloToy or Bambu Lab affiliation.
 
 ## Choose the firmware you prefer
