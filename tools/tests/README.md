@@ -26,6 +26,10 @@ as passing it.
 
 The firmware regression cases cover:
 
+- Saved-network connection and provisioning joins request all-channel scanning
+  ordered by signal, preserving credentials and the provisioning pause contract.
+  This prevents fast-scan order from selecting a weak AP of a mesh SSID.
+
 - Successful image followed by an offline poll, untouched failure, partial draw,
   or startup with no connection.
 - Saved AMS4 restoration across an early g-code delta, eventual topology,

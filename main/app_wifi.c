@@ -1,5 +1,6 @@
 // main/app_wifi.c —— WiFi STA 连接 + SNTP 对时(中国 NTP 源)。
 #include "app_wifi.h"
+#include "app_wifi_station.h"
 
 #include <string.h>
 
@@ -44,9 +45,8 @@ static void connect_current(void)
 {
     if (s_nets <= 0) return;
     if (s_cur >= s_nets) s_cur = 0;
-    wifi_config_t wc = { 0 };
-    strlcpy((char *)wc.sta.ssid, s_ssid[s_cur], sizeof(wc.sta.ssid));
-    strlcpy((char *)wc.sta.password, s_pass[s_cur], sizeof(wc.sta.password));
+    wifi_config_t wc;
+    app_wifi_station_config(&wc, s_ssid[s_cur], s_pass[s_cur]);
     esp_wifi_set_config(WIFI_IF_STA, &wc);
     esp_wifi_connect();
     ESP_LOGI(TAG, "连接 [%d/%d] %s ...", s_cur + 1, s_nets, s_ssid[s_cur]);
@@ -94,6 +94,9 @@ static void on_ip(void *arg, esp_event_base_t base, int32_t id, void *data)
     ESP_LOGI(TAG, "拿到 IP " IPSTR, IP2STR(&e->ip_info.ip));
     xEventGroupSetBits(s_ev, EV_IP);
     s_fail = 0;   // 连上即清零,下次断开从头算
+    wifi_ap_record_t ap;
+    if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK)
+        ESP_LOGI(TAG, "WiFi 信号=%d dBm,信道=%u", ap.rssi, (unsigned)ap.primary);
 
     // 首次拿到 IP 后再启动 SNTP,避免无网空转
     static bool sntp_started;
@@ -107,6 +110,7 @@ static void on_ip(void *arg, esp_event_base_t base, int32_t id, void *data)
 
 static void on_disconnect(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
+    const wifi_event_sta_disconnected_t *event = data;
     xEventGroupClearBits(s_ev, EV_IP);
     // 配网页正在立即切 WiFi:这次断开是页面主动触发的,让页面自己连新网络
     if (s_pause_until_us && esp_timer_get_time() < s_pause_until_us) {
@@ -120,6 +124,7 @@ static void on_disconnect(void *arg, esp_event_base_t base, int32_t id, void *da
         connect_current();
         return;
     }
+    if (event) ESP_LOGW(TAG, "WiFi 连接中断: reason=%u rssi=%d", (unsigned)event->reason, event->rssi);
     s_fail++;
     // 单组:无限原地重连(与旧行为一致)。
     // 多组:同一组连败 3 次换下一组 —— 走到没去过的地方,自动切换到在场的网络。

@@ -185,7 +185,7 @@ static void verify_cycle(int page_count, bool screenshots)
     signature(current, sizeof(current)); assert(!strcmp(current, pages[0]));
     press(BSP_BTN_UP, BSP_BTN_CLICK);
     signature(current, sizeof(current)); assert(!strcmp(current, pages[page_count - 1]));
-    assert(strstr(current, "PrintPet Core v1.6.0-host"));
+    assert(strstr(current, "PrintPet Core v1.6.1-host"));
     unsigned before = refresh_requests;
     press(BSP_BTN_OK, BSP_BTN_CLICK); assert(refresh_requests == before + 1);
     press(BSP_BTN_DOWN, BSP_BTN_CLICK);

@@ -17,6 +17,7 @@
 #include "app_config.h"
 #include "app_camera_config.h"
 #include "app_wifi.h"
+#include "app_wifi_station.h"
 #include "bambu_ca.h"          // api.bambulab.cn 的中间 CA + 根 CA
 #include "bsp_display.h"      // bsp_lvgl_lock(网页线程更新屏幕要加锁)
 #include "cJSON.h"
@@ -681,9 +682,8 @@ static esp_err_t joinwifi_handler(httpd_req_t *req)
     // 已联网时切网会触发 app_wifi 的自动重连;暂停它,避免把刚设的新网络顶掉
     app_wifi_pause_reconnect(20000);
 
-    wifi_config_t wc = { 0 };
-    strlcpy((char *)wc.sta.ssid, ssid, sizeof(wc.sta.ssid));
-    strlcpy((char *)wc.sta.password, pass, sizeof(wc.sta.password));
+    wifi_config_t wc;
+    app_wifi_station_config(&wc, ssid, pass);
     esp_wifi_disconnect();                       // 未连接时返回错误,忽略
     esp_err_t e1 = esp_wifi_set_config(WIFI_IF_STA, &wc);
     esp_err_t e2 = esp_wifi_connect();
@@ -1205,9 +1205,8 @@ void app_provision_start(void)
         device_config_t saved;
         config_load(&saved);
         if (saved.wifi_ssid[0][0]) {
-            wifi_config_t sc = { 0 };
-            strlcpy((char *)sc.sta.ssid, saved.wifi_ssid[0], sizeof(sc.sta.ssid));
-            strlcpy((char *)sc.sta.password, saved.wifi_pass[0], sizeof(sc.sta.password));
+            wifi_config_t sc;
+            app_wifi_station_config(&sc, saved.wifi_ssid[0], saved.wifi_pass[0]);
             esp_wifi_set_config(WIFI_IF_STA, &sc);
             esp_err_t e = esp_wifi_connect();
             ESP_LOGI(TAG, "按已存 WiFi 自动连接 %s: %s",

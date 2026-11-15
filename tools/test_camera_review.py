@@ -47,7 +47,9 @@ class CameraReviewTests(unittest.TestCase):
         cls.work = Path(cls.directory.name)
         cls.executables = {}
         sources = {name: (ROOT / "main" / f"app_{name}.c").read_text(encoding="utf-8")
-                   for name in ["camera", "camera_config", "mqtt", "printer", "config", "provision", "poweroff"]}
+                   for name in ["camera", "camera_config", "mqtt", "printer", "config", "provision", "poweroff", "wifi"]}
+        station_policy = ROOT / 'main/app_wifi_station.h'
+        station = function(station_policy.read_text(encoding='utf-8'), 'app_wifi_station_config') if station_policy.exists() else ''
         main = (ROOT / "main/main.c").read_text(encoding="utf-8")
         reader = re.search(r"typedef struct \{.*?\} camera_reader_t;", sources["camera"], re.S).group()
         mqtt = sources["mqtt"][sources["mqtt"].index("static void sanitize_job"):sources["mqtt"].index("static void push_pushall")]
@@ -91,6 +93,9 @@ class CameraReviewTests(unittest.TestCase):
                 "POST": function(sources["provision"], "camera_save_handler")},
             "config": {"NAMESPACE": function(sources["camera_config"], "namespace_for"),
                        "LOAD": function(sources["camera_config"], "camera_config_load")},
+            "wifi": {"STATION": station, "CONNECT": function(sources["wifi"], "connect_current"),
+                     "HTTP_HELPERS": "\n".join(function(sources["provision"], name) for name in ["hexval", "url_decode", "form_field"]),
+                     "JOIN": function(sources["provision"], "joinwifi_handler")},
         }.items():
             fixture = "transport" if kind.startswith("transport") else kind
             text = (FIXTURES / f"camera_review_{fixture}.c").read_text(encoding="utf-8")
@@ -130,6 +135,12 @@ class CameraReviewTests(unittest.TestCase):
 
     def test_offline_poll_retains_verified_image(self):
         self.run_case("worker", "offline")
+
+    def test_saved_wifi_connection_searches_all_same_ssid_access_points(self):
+        self.run_case("wifi", "saved")
+
+    def test_provisioning_join_uses_the_same_signal_priority_policy(self):
+        self.run_case("wifi", "provision")
 
     def test_camera_snapshot_session_is_reused_after_verified_frame(self):
         self.run_case("transport", "reuse")

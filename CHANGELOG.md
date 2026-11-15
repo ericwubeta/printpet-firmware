@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## Unreleased — v1.6.1 (PrintPet Core)
+
+- Search all channels and prefer signal strength for a saved SSID, including a single configured mesh/extender network. Previously fast scan could stop at the first matching weak AP.
+- Share the same station policy with provisioning joins and saved-network reuse in APSTA mode; keep credentials, authentication defaults, modem sleep and printer read-only behavior unchanged.
+- Log disconnection reason/RSSI and the connected signal/channel for support without adding access codes or tokens to diagnostics.
+- Add native regressions at the actual saved-network and provisioning driver-configuration boundaries.
+
 ## v1.6.0 — 2026-11-15 (PrintPet Core)
 
 - Add an optional second-page LAN JPEG camera preview with measured FPS, print status and dynamic aspect-ratio fitting. Configuration is stored per printer serial; earlier hardware tests cover X2D only.
