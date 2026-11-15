@@ -1,6 +1,6 @@
 # PrintPet firmware maintenance
 
-Preserve historical tags and all unrelated local changes. Main is Core1.6.0 with optional LAN camera monitoring; Core1.5.2 remains the compact 1.5.x choice and Spirit2.0.1 remains the character/voice choice. These are separate releases; none controls printers. Build and host checks are separate from physical device acceptance.
+Preserve historical tags and all unrelated local changes. Main is Core1.6.1 with optional LAN camera monitoring and signal-priority mesh AP selection; Core1.5.2 remains the compact 1.5.x choice and Spirit2.0.1 remains the character/voice choice. These are separate releases; none controls printers. Core1.6.1 has bounded USB/idle board-network validation; live-printer/camera load and battery-current acceptance remain separate.
 
 This source uses a shared ESP32-C3 8MiB layout: app0x370000/4MiB, resources0x10000/3MiB, read-only cardid0x356000/0x4000. Never erase or write the vendor gap0x310000–0x36FFFF or copy another device identity. Only complete sparse packages may be offered for installation/recovery; follow docs/INSTALL.md. Building/publication does not authorize device access or flashing.
 

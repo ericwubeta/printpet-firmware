@@ -1,4 +1,4 @@
-# PrintPet Core 1.6.0
+# PrintPet Core 1.6.1
 
 English | [简体中文](README.zh_CN.md)
 
@@ -6,7 +6,7 @@ Read-only Bambu printer monitoring on third-party FoloToy AI Passport hardware: 
 
 ## Choose the firmware you prefer
 
-- [Core 1.6.0](https://github.com/ericwubeta/printpet-firmware/releases/tag/v1.6.0): monitoring with optional LAN camera previews, persistent printer/page selection and automatic power-off. See the [release notes](docs/RELEASE_CORE_1.6.0.md).
+- [Core 1.6.1](https://github.com/ericwubeta/printpet-firmware/releases/tag/v1.6.1): monitoring with optional LAN camera previews, persistent printer/page selection and automatic power-off; fixes weak-AP selection on same-SSID mesh/extender networks. See the [release notes](docs/RELEASE_CORE_1.6.1.md).
 - [Core 1.5.2](https://github.com/ericwubeta/printpet-firmware/releases/tag/v1.5.2): the retained compact 1.5.x monitor, without the 1.6.0 camera features.
 - [Spirit 2.0.1](https://github.com/ericwubeta/printpet-firmware/releases/tag/v2.0.1): monitoring plus six characters, state animation and short voice prompts. This renumbers the local 2.2.0 feature set; it does not restore early experimental code.
 
@@ -14,7 +14,7 @@ These complete releases share the identity-protected layout. Historical tags rem
 
 ## Camera monitoring and power
 
-The second detail page shows the supported printer's LAN JPEG preview with measured FPS and print status. Configure the printer IP/hostname and LAN access code in provisioning. The earlier hardware tests covered X2D at about 0.7–1.0 FPS; other models, A1/P1 streams and this release binary still need device validation. This is a JPEG preview, not RTSPS/H.264 video.
+The second detail page shows the supported printer's LAN JPEG preview with measured FPS and print status. Configure the printer IP/hostname and LAN access code in provisioning. Earlier camera hardware tests covered X2D at about 0.7–1.0 FPS. This release's board/network test did not include a live printer or camera load; other models and A1/P1 streams remain unverified. This is a JPEG preview, not RTSPS/H.264 video.
 
 The device restores the last printer and page on startup. After 10 minutes with the screen off, it enters deep sleep if USB power is undetected and no known print is active. Network monitoring stops in deep sleep; a physical key restarts the device. USB host detection cannot reliably identify an ordinary charger/power bank. See [camera controls and compatibility](docs/CAMERA_UI.md) and [automatic power-off](docs/AUTO_POWEROFF.md).
 
@@ -35,7 +35,9 @@ idf.py build
 python tools/build_bundle.py --build build --output dist
 ```
 
-Use the validated package, not the default flash command for an unknown layout. Build: PASS (ESP-IDF 5.5.5, LVGL 9.5.0). The 69 camera/protocol/state regressions and both MQTT/LVGL read-only host checks passed. Package validation is offline. Device tests: NOT RUN for this binary/new layout; previous-version acceptance does not establish new-layout or all-printer-state acceptance.
+New builds do not inherit this release's board results. Package metadata defaults to untested; `--device-tested` requires an explicit `--device-test-scope` for the exact image covered by recorded observations.
+
+Use the validated package, not the default flash command for an unknown layout. Build: PASS (ESP-IDF 5.5.5, LVGL 9.5.0). The 71 regressions, both MQTT/LVGL read-only host checks, package negatives and simulated Flash transactions passed. This exact application completed 32 minutes of USB-powered idle observation on one ESP32-C3/8MiB board: over 31 minutes after cloud connection with no established-session drop, Wi-Fi loss, PING timeout or crash. The original 20 configuration values were retained. First-install/recovery package behavior is covered by offline/synthetic checks; this application was tested as an upgrade on the shared protected layout. Live printing, camera load, other network conditions and battery-current tests remain open.
 
 ## Third-party media
 

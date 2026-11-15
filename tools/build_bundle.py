@@ -4,7 +4,10 @@ import argparse,hashlib,importlib.util,json,re,shutil,zipfile
 
 def main():
     root=Path(__file__).resolve().parents[1]
-    p=argparse.ArgumentParser();p.add_argument('--build',type=Path,default=root/'build');p.add_argument('--output',type=Path,default=root/'dist');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--build',type=Path,default=root/'build');p.add_argument('--output',type=Path,default=root/'dist')
+    p.add_argument('--device-tested',action='store_true');p.add_argument('--device-test-scope')
+    a=p.parse_args()
+    if bool(a.device_tested) != bool(a.device_test_scope):p.error('--device-tested and --device-test-scope must be supplied together')
     product=re.search(r'#define APP_PRODUCT_LINE "(Core|Spirit)"',(root/'main/app_identity.h').read_text(encoding="utf-8"))[1]
     version=re.search(r'project\(passport_printer VERSION ([\d.]+)\)',(root/'CMakeLists.txt').read_text(encoding="utf-8"))[1]
     dest=a.output/f'PrintPet-{product}-{version}';dest.mkdir(parents=True,exist_ok=False);(dest/'images').mkdir()
@@ -15,7 +18,8 @@ def main():
     parts=[]
     for role,src in items:
         offset=guard.ADDRESSES[role];name=f'images/{role}-at-{hex(offset)}.bin';target=dest/name;shutil.copy2(src,target);parts.append({'role':role,'file':name,'offset':offset,'bytes':target.stat().st_size,'sha256':sha(target)})
-    m={'format':'printpet-sparse-v1','product':product,'version':version,'chip':'ESP32-C3','flashBytes':0x800000,'parts':parts,'deviceTested':False}
+    m={'format':'printpet-sparse-v1','product':product,'version':version,'chip':'ESP32-C3','flashBytes':0x800000,'parts':parts,'deviceTested':a.device_tested}
+    if a.device_tested:m['deviceTestScope']=a.device_test_scope
     (dest/'manifest.json').write_text(json.dumps(m,indent=2),encoding='utf-8')
     for src in (root/'tools/installer').glob('*'):
         if src.is_file():shutil.copy2(src,dest/src.name)
@@ -28,6 +32,6 @@ def main():
     with zipfile.ZipFile(archive,'x',zipfile.ZIP_DEFLATED) as z:
         for q in sorted(dest.rglob('*')):
             if q.is_file():z.write(q,q.relative_to(dest))
-    print(json.dumps({'archive':str(archive),'sha256':sha(archive),'deviceTested':False}))
+    print(json.dumps({'archive':str(archive),'sha256':sha(archive),'deviceTested':a.device_tested}))
 
 if __name__=='__main__':main()

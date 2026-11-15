@@ -1,4 +1,4 @@
-# PrintPet Core 1.6.0
+# PrintPet Core 1.6.1
 
 [English](README.md) | 简体中文
 
@@ -6,7 +6,7 @@
 
 ## 两条固件，按喜好选择
 
-- **[Core 1.6.0](https://github.com/ericwubeta/printpet-firmware/releases/tag/v1.6.0)**：只读监控，加入可选局域网相机预览、打印机/页面记忆及自动关机。详见[更新说明](docs/RELEASE_CORE_1.6.0.md)。
+- **[Core 1.6.1](https://github.com/ericwubeta/printpet-firmware/releases/tag/v1.6.1)**：只读监控，保留可选局域网相机预览、打印机/页面记忆及自动关机；修复同名Mesh/扩展器网络误选弱节点的问题。详见[更新说明](docs/RELEASE_CORE_1.6.1.md)。
 - **[Core 1.5.2](https://github.com/ericwubeta/printpet-firmware/releases/tag/v1.5.2)**：保留的1.5.x简洁监控版，不含1.6.0新增相机功能。
 - **[Spirit 2.0.1](https://github.com/ericwubeta/printpet-firmware/releases/tag/v2.0.1)**：保留核心监控，加入六位精灵、状态动作、短语音和音量/亮度设置。它沿用此前本地2.2.0功能重新编号，不是旧实验代码回退。
 
@@ -14,7 +14,7 @@
 
 ## 相机监控与自动关机
 
-详情第二页显示支持的打印机局域网JPEG画面、实测帧率和打印信息，需要在配网页设置打印机IP/主机名与LAN访问码。此前旧布局仅实测X2D，约0.7–1.0 FPS；其他机型、A1/P1流及本次发布二进制仍待实机验证。这是JPEG预览，不解码RTSPS/H.264视频。
+详情第二页显示支持的打印机局域网JPEG画面、实测帧率和打印信息，需要在配网页设置打印机IP/主机名与LAN访问码。此前相机实测仅覆盖X2D，约0.7–1.0 FPS；本版设备联网测试未包含实时打印和相机负载，其他机型及A1/P1流仍待验证。这是JPEG预览，不解码RTSPS/H.264视频。
 
 设备重启后恢复上次打印机与页面。未检测到USB供电且没有已知的活动任务时，连续息屏10分钟后进入深度睡眠。深睡会关闭网络监控，需实体按键重新开机；USB主机检测不能可靠识别普通充电头或充电宝。详见[相机页面](docs/CAMERA_UI.md)和[自动关机](docs/AUTO_POWEROFF.md)。
 
@@ -35,11 +35,13 @@ idf.py build
 python tools/build_bundle.py --build build --output dist
 ```
 
+自行重新编译不继承本Release的实机结论。打包默认标记未实测；只有确有对应二进制记录时，才同时提供`--device-tested`和`--device-test-scope`说明范围。
+
 使用dist中的完整包和校验工具；不要直接运行构建日志中的默认烧录命令来处理未知设备。SDK的默认flash目标没有自动验证本项目保护区或完整资源输入。
 
 ## 验证范围
 
-Build: PASS（ESP-IDF 5.5.5、LVGL 9.5.0）。69项相机/协议/状态回归与两套MQTT/LVGL只读主机测试通过，安装包按离线方式校验。Device tests: NOT RUN（本次二进制及新布局未实机刷写）。旧版本的人工验收不能替代本版验收；多机、全部真实打印状态、长期稳定性仍需分别确认。
+Build: PASS（ESP-IDF 5.5.5、LVGL 9.5.0）。71项回归、两套MQTT/LVGL只读主机测试、包负例及模拟Flash事务通过。正式包应用与实机测试版本逐字节一致：一台ESP32-C3/8MiB设备、USB供电、空闲监控连续采集32分钟，成功联网后超过31分钟，已连接会话断开、Wi-Fi掉线、心跳超时和崩溃均为0，原20项配置保留。应用在既有共享保护布局上升级验证；完整首次安装/恢复包路径主要由离线和模拟事务检查覆盖。真实打印、相机负载、其他网络环境及电池电流仍待补测。
 
 ## 角色与声音
 
