@@ -8,6 +8,12 @@ released application/resources unchanged and preserves the factory identity
 reservation; old network/account configuration is reset. Historical tags and
 sparse ZIP packages remain unchanged.
 
+The progress-screen revision adds visible first-install preparation and a
+keep-power-connected prompt. Fresh installation, progress, automatic handoff to
+setup and subsequent startup were checked on one physical device. This improves
+the confirmed silent first-start wait; the original community reviewer's device
+failure has not been independently reproduced.
+
 Read-only Bambu printer monitoring on third-party FoloToy AI Passport hardware: ESP32-C3, 8MiB flash, no PSRAM. No official FoloToy or Bambu Lab affiliation.
 
 ## Choose the firmware you prefer

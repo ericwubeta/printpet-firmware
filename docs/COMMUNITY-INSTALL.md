@@ -12,8 +12,14 @@ reservation **0x310000–0x36FFFF**. Do not pad it to 8 MiB or erase the chip.
 
 ## First startup
 
-Keep power connected while the bootloader expands and verifies the application
-and resources. Once finished, setup opens automatically. Community installation
+The progress-screen revision on this branch addresses the silent wait during
+first-start unpacking. It shows PREPARING, a progress bar and KEEP POWER ON before
+the application starts. A failed installation shows SETUP STOPPED / REINSTALL.
+Completed installs skip this screen on subsequent boots. See
+[current validation](COMMUNITY-VALIDATION.json) for this exact artifact's tests.
+
+Keep power connected while the progress screen advances and the bootloader
+expands and verifies the application and resources. Once finished, setup opens automatically. Community installation
 resets old Wi-Fi and Bambu account settings; enter them again. It preserves the
 factory identity reservation, not all user configuration. Identity lost before
 this installation cannot be recreated by this file.
