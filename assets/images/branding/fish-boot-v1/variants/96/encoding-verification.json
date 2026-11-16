@@ -1,0 +1,8 @@
+{
+  "result": "PASS",
+  "width": 96,
+  "payloadBytes": 10240,
+  "cArrayMatchesPayload": true,
+  "paletteUint32DecodeMatchesPng": true,
+  "cSha256": "99ee1c06c17c36e6c3e53b4ef21c9083a6011a5acdc02272ecc5c5f4c6fcf9db"
+}

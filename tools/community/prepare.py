@@ -1,7 +1,7 @@
 """Reproduce a factory-identity-preserving, compressed community installer.
 
-The application and resources remain byte-identical to the v2.0.1 release.
-Only the bootloader and temporary low-flash installation payload differ.
+The legacy default pins v2.0.1. New application builds require an explicit
+selected-input manifest; protected geometry and resource/partition pins remain.
 """
 import argparse
 import hashlib
@@ -29,6 +29,7 @@ def main():
     p.add_argument('--output', type=Path, required=True)
     p.add_argument('--bootloader', type=Path)
     p.add_argument('--partitions', type=Path)
+    p.add_argument('--inputs-manifest', type=Path)
     a = p.parse_args()
     a.output.mkdir(parents=True, exist_ok=True)
     descriptors = []
@@ -37,10 +38,34 @@ def main():
         'application': '8ad4f4e69623e2ef236ba96bca1001ad3c84ac4d0e3ec0dfdbe857a5d3cfd277',
         'resources': 'b07a354f3fd0edcfe90c21381c00f5d341ddc831aaf08a604c74d8d5a801fd5d',
     }
+    version = '2.0.1'
+    selected = None
+    if a.inputs_manifest:
+        selected = json.loads(a.inputs_manifest.read_text(encoding='utf-8'))
+        require(selected.get('format') == 'printpet-selected-build-v1', 'Unknown build input manifest')
+        require(selected.get('version') == '2.0.2', 'Unsupported selected application version')
+        require(selected.get('target') == 'esp32c3' and selected.get('flashBytes') == 0x800000,
+                'Selected build targets the wrong hardware')
+        require(selected.get('resourcesSha256') == expected['resources'], 'Wrong fixed resource selection')
+        digest = selected.get('applicationSha256', '')
+        require(len(digest) == 64 and all(c in '0123456789abcdef' for c in digest), 'Invalid selected app SHA')
+        expected['application'] = digest
+        version = selected['version']
     for name, file, dest in [('application', a.application, 0x370000),
                              ('resources', a.resources, 0x10000)]:
         raw = file.read_bytes()
         require(SHA(raw) == expected[name], f'Wrong original {name}')
+        if name == 'application':
+            require(32 < len(raw) <= 0x400000 and raw[0] == 0xe9 and
+                    struct.unpack_from('<H', raw, 12)[0] == 5, 'Invalid ESP32-C3 application')
+            desc = raw[:1024].find(struct.pack('<I', 0xabcd5432))
+            require(desc >= 0, 'Missing application descriptor')
+            app_version = raw[desc+16:desc+48].split(b'\0')[0].decode('ascii')
+            require(app_version == version, 'Application version differs from selected build')
+            if selected:
+                require(len(raw) == selected.get('applicationBytes'), 'Selected application size differs')
+        else:
+            require(len(raw) <= 0x300000, 'Resource image exceeds its fixed partition')
         c = zlib.compressobj(level=9, wbits=11)
         packed = c.compress(raw) + c.flush()
         require(zlib.decompress(packed) == raw, 'Compression roundtrip failed')
@@ -54,14 +79,14 @@ def main():
     app, res = descriptors
     require(res['source'] >= ALIGN(res['destination'] + res['rawBytes'], 0x1000),
             'Resource destination overlaps its compressed source')
-    manifest = dict(format='printpet-community-compressed-v1', version='2.0.1',
+    manifest = dict(format='printpet-community-compressed-v1', version=version,
                     windowBits=11, imageBytes=LIMIT, markerOffset=DONE,
                     protectedStart=LIMIT, protectedEnd=0x370000,
                     parts=descriptors, physicalValidation='not_run')
     (a.output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
     def bytes_c(hexdigest):
         return '{' + ','.join('0x' + hexdigest[i:i+2] for i in range(0, 64, 2)) + '}'
-    header = ['/* Generated from verified v2.0.1 bytes by tools/community/prepare.py. */',
+    header = [f'/* Generated from selected {version} bytes by tools/community/prepare.py. */',
               '#pragma once', '#define PP_WINDOW 2048', '#define PP_DONE_OFFSET 0x30f000',
               'static const pp_image_t images[] = {']
     for d in descriptors:
@@ -90,7 +115,7 @@ def main():
             data = (a.output / (d['name'] + '.zlib')).read_bytes()
             image[d['source']:d['source']+len(data)] = data
         require(image[DONE:] == b'\xff' * 0x1000, 'Completion sector must start erased')
-        path = a.output / 'PrintPet-Spirit-2.0.1-community.bin'
+        path = a.output / f'PrintPet-Spirit-{version}-community.bin'
         path.write_bytes(image)
         manifest.update(imageSha256=SHA(image), bootloaderBytes=len(boot),
                         bootloaderSha256=SHA(boot), partitionsSha256=SHA(table))

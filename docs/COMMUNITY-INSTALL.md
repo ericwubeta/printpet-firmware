@@ -1,9 +1,10 @@
-# Spirit 2.0.1 community single-file installer
+# Spirit 2.0.2 community single-file installer
 
-This branch adds a first-boot installer to the already released Spirit 2.0.1. The
-application and character resource bytes are identical to tag `v2.0.1`; historical
-tags and ZIP release assets are unchanged. The community artifact is a new
-installation format with its own bootloader and validation boundary.
+This branch builds Spirit 2.0.2 with the approved Da Fei Yu portrait and a typed
+terminal startup. Its new application is selected through an explicit SHA/version
+input manifest; the character resource bytes remain identical to `v2.0.1`.
+Historical tags and release files are unchanged. The community artifact uses its
+own first-boot installer; the separate sparse recovery ZIP uses a standard loader.
 
 The community uploader/flasher accepts one merged binary starting at zero. A
 normal merged binary spanning the application would overwrite factory identity.
@@ -67,9 +68,9 @@ Use ESP-IDF 5.5 for ESP32-C3 with the release's configuration and placeholder
 published application and resource files:
 
 ```text
-python tools/community/prepare.py --application RELEASE_APP.bin --resources resources/spirit-resources-2.0.1.bin --output OUTPUT
+python tools/community/prepare.py --application RELEASE_APP.bin --resources resources/spirit-resources-2.0.1.bin --inputs-manifest SELECTED-BUILD.json --output OUTPUT
 idf.py bootloader
-python tools/community/prepare.py --application RELEASE_APP.bin --resources resources/spirit-resources-2.0.1.bin --output OUTPUT --bootloader build/bootloader/bootloader.bin --partitions RELEASE_PARTITIONS.bin
+python tools/community/prepare.py --application RELEASE_APP.bin --resources resources/spirit-resources-2.0.1.bin --inputs-manifest SELECTED-BUILD.json --output OUTPUT --bootloader build/bootloader/bootloader.bin --partitions RELEASE_PARTITIONS.bin
 ```
 
 The generator rejects other application/resource hashes, overlapping payloads or
@@ -85,7 +86,7 @@ validation report for the exact artifact hashes and actual results. QEMU and
 models do not establish physical flash brownout behavior or physical-device
 acceptance. No device connection or flash operation is authorized by this file.
 
-The original application SHA256 is
-`8ad4f4e69623e2ef236ba96bca1001ad3c84ac4d0e3ec0dfdbe857a5d3cfd277`;
+The selected 2.0.2 application SHA256 is
+`be4af9a4a3429ae85dd27e78cfe8aa1d689fde236d9c7546ccae60840ffdb5b1`;
 resources SHA256 is
 `b07a354f3fd0edcfe90c21381c00f5d341ddc831aaf08a604c74d8d5a801fd5d`.

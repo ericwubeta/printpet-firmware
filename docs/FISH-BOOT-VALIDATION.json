@@ -1,0 +1,56 @@
+{
+  "version": "2.0.2",
+  "startupStyle": "Da Fei Yu portrait + typed terminal + cursor + progress bar",
+  "avatarPixels": 112,
+  "applicationBytes": 4173152,
+  "applicationSha256": "be4af9a4a3429ae85dd27e78cfe8aa1d689fde236d9c7546ccae60840ffdb5b1",
+  "communitySha256": "2d39fa8aa66f6f359f8f25b6d6c1422d05671a55cb976c7abd9679ebef504b36",
+  "communityBytes": 3211264,
+  "resourceSha256": "b07a354f3fd0edcfe90c21381c00f5d341ddc831aaf08a604c74d8d5a801fd5d",
+  "resourceUnchanged": true,
+  "firstBoot": {
+    "version": "2.0.2",
+    "startupStyle": "fish portrait plus terminal",
+    "events": {
+      "installed": 38.639,
+      "app": 39.333,
+      "display": 40.213,
+      "avatar": 40.418,
+      "avatar_done": 42.945,
+      "cloud": 59.115
+    },
+    "captureSeconds": 80.023,
+    "logBytes": 7317,
+    "rawLogPrivate": true
+  },
+  "subsequentBoot": {
+    "version": "2.0.2",
+    "startupStyle": "fish portrait plus terminal",
+    "events": {
+      "app": 0.761,
+      "display": 1.642,
+      "avatar": 1.847,
+      "avatar_done": 4.374,
+      "cloud": 20.221
+    },
+    "captureSeconds": 45.13,
+    "logBytes": 7735,
+    "rawLogPrivate": true
+  },
+  "readback": {
+    "applicationChipDigestMatchesSelected": true,
+    "resourcesChipDigestMatchesSelected": true,
+    "factoryRegionByteForByteUnchanged": true,
+    "settingsPreservation": "latest_same_device_user_configuration_restored_before_boot",
+    "settingsChipDigestVerified": true,
+    "noVendorWrites": true
+  },
+  "actualDeviceUsed": true,
+  "deviceCount": 1,
+  "firmwareVisualConfirmationPending": true,
+  "publicImageContainsPersonalSettings": false,
+  "physicalPowerCutTested": false,
+  "sparseZipInstallerPathPhysicallyTested": false,
+  "qemuVerifiedInstallerData": true,
+  "qemuDoesNotVerifyLCD": true
+}

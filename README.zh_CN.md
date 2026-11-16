@@ -1,14 +1,14 @@
-# PrintPet Spirit 2.0.1
+# PrintPet Spirit 2.0.2
 
 [English](README.md) | 简体中文
 
-本分支新增[保留原厂身份的社区单文件安装方式](docs/COMMUNITY-INSTALL.md)，首启解压并验证，应用与资源字节沿用已发布版；旧网络与账号配置会重置。历史 tag 和原分段 ZIP 保持不变。
+本版开机将已批准的大肥鱼头像与终端逐行打字、光标和加载条结合。只读监控和六位精灵功能延续，应用已更新，精灵资源包与身份保护分区布局沿用 2.0.1。
 
-本次改进增加首装进度页和保持供电提示，已在一台实机验证完整首次安装、进度显示、自动进入配网及再次启动。它解决已确认的首启等待无可见反馈问题；尚未独立复现社区审核设备所报的永久无法启动。
+社区单文件继续使用[首装进度页](docs/COMMUNITY-INSTALL.md)；完整恢复 ZIP 采用标准引导和分地址写入，两者不要混用。通用产物不包含个人设置。本轮本机测试单独保留并恢复了这台设备刚配置好的账号和网络信息，没有夹进公开固件。
 
 面向拓竹打印机的只读监控固件，运行于第三方FoloToy AI Passport（ESP32-C3、8MiB Flash、无PSRAM）。本项目不制造硬件，与FoloToy、Bambu Lab无官方关联。
 
-## 两条固件，按喜好选择
+## 历史发布参考（2.0.1 基线）
 
 - **[Core 1.5.2](https://github.com/ericwubeta/printpet-firmware/releases/tag/v1.5.2)**：1.5.x最终功能版，保留纯监控界面，不显示精灵角色或角色语音。
 - **[Spirit 2.0.1](https://github.com/ericwubeta/printpet-firmware/releases/tag/v2.0.1)**：保留核心监控，加入六位精灵、状态动作、短语音和音量/亮度设置。它沿用此前本地2.2.0功能重新编号，不是旧实验代码回退。
@@ -29,7 +29,7 @@
 
 ```text
 idf.py build
-python tools/build_bundle.py --build build --output dist
+python tools/build_bundle.py --build build --output dist --stock-bootloader STOCK_BOOTLOADER.bin
 ```
 
 使用dist中的完整包和校验工具；不要直接运行构建日志中的默认烧录命令来处理未知设备。SDK的默认flash目标没有自动验证本项目保护区或完整资源输入。

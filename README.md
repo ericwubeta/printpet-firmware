@@ -1,22 +1,20 @@
-# PrintPet Spirit 2.0.1
+# PrintPet Spirit 2.0.2
 
 English | [简体中文](README.zh_CN.md)
 
-Community single-file installation is provided by this branch's
-[identity-preserving first-boot installer](docs/COMMUNITY-INSTALL.md). It keeps the
-released application/resources unchanged and preserves the factory identity
-reservation; old network/account configuration is reset. Historical tags and
-sparse ZIP packages remain unchanged.
+This build combines the approved Da Fei Yu avatar with the terminal-style startup,
+typed lines, cursor and progress bar. It retains read-only monitoring and six
+spirits. The application is new; the character resource pack and identity-safe
+partition geometry remain unchanged from 2.0.1.
 
-The progress-screen revision adds visible first-install preparation and a
-keep-power-connected prompt. Fresh installation, progress, automatic handoff to
-setup and subsequent startup were checked on one physical device. This improves
-the confirmed silent first-start wait; the original community reviewer's device
-failure has not been independently reproduced.
+The separate [community installer](docs/COMMUNITY-INSTALL.md) shows first-install
+progress. The recovery ZIP instead uses the selected standard bootloader and
+sparse addresses. Generic files contain no device settings. Local device tests
+preserved this device's newly configured account/network data privately.
 
 Read-only Bambu printer monitoring on third-party FoloToy AI Passport hardware: ESP32-C3, 8MiB flash, no PSRAM. No official FoloToy or Bambu Lab affiliation.
 
-## Choose the firmware you prefer
+## Historical release references (2.0.1 baseline)
 
 - [Core 1.5.2](https://github.com/ericwubeta/printpet-firmware/releases/tag/v1.5.2): final 1.5.x feature line; a compact monitor without character animation or character voice.
 - [Spirit 2.0.1](https://github.com/ericwubeta/printpet-firmware/releases/tag/v2.0.1): monitoring plus six characters, state animation and short voice prompts. This renumbers the local 2.2.0 feature set; it does not restore early experimental code.

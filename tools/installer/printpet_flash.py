@@ -41,7 +41,7 @@ def parse_table(data):
 def validate(folder=ROOT):
     folder=folder.resolve();m=json.loads((folder/'manifest.json').read_text(encoding='utf-8'))
     need(m['format']=='printpet-sparse-v1' and m['flashBytes']==FLASH_BYTES,'Unsupported package')
-    need((m['product'],m['version']) in [('Core','1.5.2'),('Spirit','2.0.1')],'Wrong product/version')
+    need((m['product'],m['version']) in [('Core','1.5.2'),('Spirit','2.0.1'),('Spirit','2.0.2')],'Wrong product/version')
     roles={};ranges=[]
     for part in m['parts']:
         role=part['role'];need(role in ADDRESSES and role not in roles,'Unknown or duplicate component')
@@ -101,6 +101,8 @@ def flash(m,parts,args):
     if args.upgrade:
         need(old[0x8000:0x8000+len(parts['partitions'][1])]==parts['partitions'][1],
              'Existing layout differs. No writes made; use the complete install/recovery mode, not app-only upgrade.')
+        need(old[:len(parts['bootloader'][1])]==parts['bootloader'][1],
+             'Existing bootloader differs from this sparse package. Use complete --install to migrate safely; table equality alone is not enough.')
         selected=[role for role in ['application','resources'] if role in parts]
     else:
         selected=[role for role in ['application','resources','bootloader','partitions'] if role in parts]

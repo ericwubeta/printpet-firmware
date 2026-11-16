@@ -1,0 +1,12 @@
+{
+  "selectedAsset": "variants/112/fish_boot_img.c",
+  "descriptor": "fish_boot_img",
+  "nativeSize": [
+    112,
+    112
+  ],
+  "sourcePng": "fish-icon-v01.png",
+  "sourceSha256": "52095a6058dcd4947e8e22cf8bf9802e85919a815ef4a207e88100e7d30e2ca7",
+  "reason": "User requested approved portrait together with the original terminal-style startup",
+  "firmwareVersion": "2.0.2"
+}

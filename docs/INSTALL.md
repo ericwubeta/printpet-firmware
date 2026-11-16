@@ -1,4 +1,6 @@
-# PrintPet Spirit 2.0.1 完整安装／恢复包
+# PrintPet Spirit 2.0.2 完整安装／恢复包
+
+本版开机结合大肥鱼头像与终端打字动画。此 ZIP 使用标准引导程序；社区自解包单文件是另一个独立安装格式，不要混用。
 
 适用：FoloToy AI Passport，ESP32-C3、8MiB Flash、无PSRAM。它是社区固件，不是厂商官方固件。
 
@@ -21,7 +23,7 @@
 1. 解压完整ZIP，保留所有文件。先运行 `python printpet_flash.py`：只核对文件、地址、SHA和分区，不接串口。
 2. 关闭占用串口的监视器。确认自己设备的端口。
 3. 首次安装／旧布局迁移／误刷恢复：`python printpet_flash.py --install --port COM5 --confirm-write`，把COM5换成实际端口。
-4. 只有已装本次共同分区布局时，才用 `python printpet_flash.py --upgrade --port COM5 --confirm-write`。不匹配会停止，不会偷偷改分区。
+4. 只有分区布局和标准引导程序都与本包一致时，才用 `python printpet_flash.py --upgrade --port COM5 --confirm-write`。从社区自解包版、未知引导或旧布局迁移，请使用上一步完整 `--install`；脚本不会仅因分区表相同就放行应用升级。
 
 脚本先完整备份本机8MiB Flash到private-backups，然后按清单写入并全量回读验证，最后比较NVS/PHY及厂商保留区字节再启动。失败保留日志，不自动重复写或回滚。备份和日志可能含个人资料，**不能发给其他用户或放入GitHub**。不要使用erase_flash、通用合并工具或自己修改偏移。
 

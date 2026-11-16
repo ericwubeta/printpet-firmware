@@ -1,0 +1,18 @@
+{
+  "result": "PASS",
+  "variants": [
+    {
+      "size": 128,
+      "cArrayAndBinMatch": true,
+      "uint32PaletteDecodeMatchesPng": true,
+      "cSha256": "82b06676f7cbeeb41f163ffd12acd8545bef40f487758b7f2bc806a51725abe4"
+    },
+    {
+      "size": 112,
+      "cArrayAndBinMatch": true,
+      "uint32PaletteDecodeMatchesPng": true,
+      "cSha256": "d3c668c076f9aaea8dee6fc7f37b87979954ca01c50a3289c2fe4c7812a5ab13"
+    }
+  ],
+  "sourceUnchanged": true
+}

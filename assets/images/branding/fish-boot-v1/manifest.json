@@ -1,0 +1,39 @@
+{
+  "asset": "fish_boot_img",
+  "character": "fish",
+  "characterName": "大肥鱼",
+  "sourceFilename": "fish-icon-v01.png",
+  "sourceSha256": "52095a6058dcd4947e8e22cf8bf9802e85919a815ef4a207e88100e7d30e2ca7",
+  "sourceSize": [
+    1254,
+    1254
+  ],
+  "width": 128,
+  "height": 128,
+  "format": "LV_COLOR_FORMAT_I8",
+  "strideBytes": 128,
+  "paletteEntries": 256,
+  "paletteByteOrder": "B,G,R,A",
+  "paletteBytes": 1024,
+  "payloadBytes": 17408,
+  "payloadSha256": "e52b871a00f5748e182ebb3bfc59fd0aca3bc1fb5fb6ccfa3167d3bfec725178",
+  "payloadZlib11Bytes": 7845,
+  "alphaRange": [
+    0,
+    255
+  ],
+  "paletteAlphaLevels": 82,
+  "transparentPaddingPixels": 8,
+  "decodedBoundingBox": [
+    9,
+    8,
+    120,
+    120
+  ],
+  "resampling": "Pillow RGBA LANCZOS (premultiplied-alpha resize)",
+  "quantization": "FASTOCTREE, 256 RGBA colors, no dithering",
+  "pillowVersion": "12.3.0",
+  "roundtripMatchesIndexedPng": true,
+  "sourceUnchanged": true,
+  "frozenBaselineModified": false
+}

@@ -1,255 +1,181 @@
-// main/app_boot.c —— PrintPet Spirit 开机动画:产品名 + 赛博终端启动。
-// 结束后回调交给主流程(打印机状态屏)。
+// Da Fei Yu portrait with the original terminal-style startup presentation.
 #include "app_boot.h"
 #include "app_identity.h"
-
-#include <stdio.h>
+#include "../assets/images/branding/fish-boot-v1/variants/112/fish_boot_img.h"
 #include <string.h>
-
 #include "esp_log.h"
 #include "font_zh.h"
 #include "lvgl.h"
 
-#define BG      0x04070A
-#define PANEL   0x06120F
-#define BORDER  0x0E4A43
-#define NEON    0x19E3C0
-#define ACCENT  0xFF4D8D
-#define DIM     0x2E6B62
+#define BG 0x04070A
+#define PANEL 0x06120F
+#define BORDER 0x0E4A43
+#define NEON 0x19E3C0
+#define ACCENT 0xFF4D8D
+#define DIM 0x6A9A90
 
-// boot 日志(行宽控制在 ~22 字符内,适配 14px 字体与面板宽度)
-// 第 0 行在 app_boot_show 里用 FW_VERSION 填充,不再硬编码版本号。
-static const char *k_lines[5] = {
-    "> boot v?.?.?",
-    "> link wifi ...... ok",
-    "> link bambu ..... ok",
-    "> mount panel .... ok",
-    "> exec monitor()",
+static const char *const lines[] = {
+    "> boot v" FW_VERSION,
+    "> wake spirit ...",
+    "> prepare display",
+    "> load interface",
+    "> run PrintPet()",
 };
-static char s_line0[32];
 
 typedef struct {
-    lv_obj_t *scr;
-    lv_obj_t *log;
-    lv_obj_t *exec;
-    lv_obj_t *bar;
-    lv_obj_t *ready;
-    lv_obj_t *cursor;
-    lv_timer_t *typ;
-    lv_timer_t *cur;
-    lv_timer_t *fin;
+    lv_obj_t *screen, *log, *command, *cursor, *bar, *ready;
+    lv_timer_t *timer;
     void (*done)(void);
-    int li;
-    int ch;
-    int pause;
-    char logbuf[160];
-    char execbuf[48];
-} boot_ctx_t;
+    uint32_t started, bar_started, pause_until;
+    unsigned line, character;
+    bool bar_active, cursor_on;
+    char body[160], execution[48];
+} boot_context_t;
+static boot_context_t ctx;
 
-static boot_ctx_t s_ctx;
-
-static void real_finish(lv_timer_t *t)
+static void cancel_tick(void)
 {
-    lv_timer_delete(t);
-    void (*done)(void) = s_ctx.done;
-    lv_obj_t *scr = s_ctx.scr;
-    if (s_ctx.typ) lv_timer_delete(s_ctx.typ);
-    if (s_ctx.cur) lv_timer_delete(s_ctx.cur);
-    ESP_LOGI("app_boot", "terminal done -> menu");
-    memset(&s_ctx, 0, sizeof(s_ctx));
-    if (done) done();
-    if (scr) lv_obj_delete(scr);
+    if (ctx.timer) { lv_timer_delete(ctx.timer); ctx.timer = NULL; }
 }
 
-static void bar_anim_cb(void *obj, int32_t v)
+static void deleted(lv_event_t *event)
 {
-    lv_obj_set_width((lv_obj_t *)obj, v);
+    if (lv_event_get_target(event) != ctx.screen) return;
+    cancel_tick();
+    memset(&ctx, 0, sizeof(ctx));
 }
 
-static void bar_complete_cb(lv_anim_t *a)
+static void finish(void)
 {
-    lv_obj_set_style_opa(s_ctx.ready, LV_OPA_COVER, 0);
-    s_ctx.fin = lv_timer_create(real_finish, 600, NULL);
+    lv_obj_t *screen = ctx.screen;
+    void (*done)(void) = ctx.done;
+    cancel_tick();
+    memset(&ctx, 0, sizeof(ctx));
+    if (!done) { ctx.screen = screen; return; }
+    ESP_LOGI("app_boot", "fish terminal splash complete");
+    done();
+    if (screen && lv_obj_is_valid(screen) && screen != lv_screen_active())
+        lv_obj_delete(screen);
 }
 
-static void start_bar(void)
+static bool append(char *buffer, size_t capacity, char value)
 {
-    lv_obj_set_style_opa(s_ctx.ready, LV_OPA_MIN, 0);
-    lv_anim_t a;
-    lv_anim_init(&a);
-    lv_anim_set_var(&a, s_ctx.bar);
-    lv_anim_set_exec_cb(&a, bar_anim_cb);
-    lv_anim_set_values(&a, 0, 144);
-    lv_anim_set_duration(&a, 700);
-    lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
-    lv_anim_set_completed_cb(&a, bar_complete_cb);
-    lv_anim_start(&a);
+    size_t used = strlen(buffer);
+    if (used + 1 >= capacity) return false;
+    buffer[used] = value; buffer[used + 1] = 0;
+    return true;
 }
 
-static void cursor_cb(lv_timer_t *t)
+static void type_character(uint32_t elapsed)
 {
-    static bool on = false;
-    on = !on;
-    lv_obj_set_style_opa(s_ctx.cursor, on ? LV_OPA_COVER : LV_OPA_MIN, 0);
-}
-
-static void type_one(void)
-{
-    boot_ctx_t *c = &s_ctx;
-    if (c->li >= 5) {
-        lv_obj_set_style_opa(c->cursor, LV_OPA_MIN, 0);
-        return;
+    if (ctx.line >= 5 || elapsed < ctx.pause_until) return;
+    const char *line = lines[ctx.line];
+    if (ctx.line < 4) {
+        if (!ctx.character && ctx.line && !append(ctx.body, sizeof(ctx.body), '\n')) return;
+        if (!append(ctx.body, sizeof(ctx.body), line[ctx.character])) return;
+        lv_label_set_text(ctx.log, ctx.body);
+    } else {
+        if (!append(ctx.execution, sizeof(ctx.execution), line[ctx.character])) return;
+        lv_label_set_text(ctx.command, ctx.execution);
     }
-    if (c->pause > 0) {
-        c->pause -= 14;
-        return;
-    }
-    const char *line = k_lines[c->li];
-    if (c->li < 4) {
-        if (c->ch == 0 && c->li > 0) strcat(c->logbuf, "\n");
-        char cc = line[c->ch];
-        if (cc) {
-            char tmp[2] = {cc, 0};
-            strcat(c->logbuf, tmp);
+    if (line[++ctx.character] == 0) {
+        ++ctx.line; ctx.character = 0; ctx.pause_until = elapsed + 90;
+        if (ctx.line == 5) {
+            ctx.bar_active = true; ctx.bar_started = elapsed;
+            lv_obj_set_style_opa(ctx.cursor, LV_OPA_TRANSP, 0);
         }
-        c->ch++;
-        lv_label_set_text(c->log, c->logbuf);
-        if (line[c->ch] == 0) {
-            c->li++;
-            c->ch = 0;
-            c->pause = 90;
+    }
+}
+
+static void tick(lv_timer_t *timer)
+{
+    if (timer != ctx.timer || !ctx.screen) return;
+    uint32_t elapsed = lv_tick_elaps(ctx.started);
+    if (elapsed >= 4500) { finish(); return; }
+    if (!ctx.bar_active) {
+        type_character(elapsed); type_character(elapsed);
+        if (!ctx.bar_active) {
+            bool on = (elapsed / 250) % 2 == 0;
+            if (on != ctx.cursor_on) {
+                ctx.cursor_on = on;
+                lv_obj_set_style_opa(ctx.cursor, on ? LV_OPA_COVER : LV_OPA_TRANSP, 0);
+            }
         }
     } else {
-        char cc = line[c->ch];
-        if (cc) {
-            char tmp[2] = {cc, 0};
-            strcat(c->execbuf, tmp);
-        }
-        c->ch++;
-        lv_label_set_text(c->exec, c->execbuf);
-        if (line[c->ch] == 0) {
-            c->li = 5;
-            start_bar();
-        }
+        uint32_t age = elapsed - ctx.bar_started;
+        lv_obj_set_width(ctx.bar, age >= 700 ? 144 : (int32_t)(144 * age / 700));
+        if (age >= 700) lv_obj_set_style_opa(ctx.ready, LV_OPA_COVER, 0);
+        if (age >= 1300) { finish(); return; }
     }
 }
 
-static void typing_cb(lv_timer_t *t)
+static lv_obj_t *box(lv_obj_t *parent, int x, int y, int width, int height, uint32_t color)
 {
-    type_one();
-    type_one();
+    lv_obj_t *o = lv_obj_create(parent);
+    if (!o) return NULL;
+    lv_obj_remove_flag(o, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_pos(o, x, y); lv_obj_set_size(o, width, height);
+    lv_obj_set_style_bg_color(o, lv_color_hex(color), 0);
+    lv_obj_set_style_border_width(o, 0, 0); lv_obj_set_style_pad_all(o, 0, 0);
+    return o;
+}
+
+static lv_obj_t *label(lv_obj_t *parent, int x, int y, int width, const char *text, uint32_t color)
+{
+    lv_obj_t *o = lv_label_create(parent);
+    if (!o) return NULL;
+    lv_obj_set_pos(o, x, y); lv_obj_set_width(o, width);
+    lv_label_set_long_mode(o, LV_LABEL_LONG_CLIP);
+    lv_obj_set_style_text_color(o, lv_color_hex(color), 0);
+    lv_label_set_text(o, text);
+    return o;
 }
 
 void app_boot_show(void (*done)(void))
 {
-    memset(&s_ctx, 0, sizeof(s_ctx));
-    s_ctx.done = done;
-    s_ctx.scr = lv_obj_create(NULL);
-    lv_obj_remove_flag(s_ctx.scr, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_bg_color(s_ctx.scr, lv_color_hex(BG), 0);
-    lv_obj_set_style_border_width(s_ctx.scr, 0, 0);
-    lv_obj_set_style_pad_all(s_ctx.scr, 0, 0);
-
-    lv_obj_t *brand = lv_label_create(s_ctx.scr);
+    lv_obj_t *previous = ctx.screen;
+    cancel_tick(); memset(&ctx, 0, sizeof(ctx)); ctx.done = done;
+    ctx.screen = lv_obj_create(NULL);
+    if (!ctx.screen) { finish(); return; }
+    lv_obj_remove_flag(ctx.screen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(ctx.screen, lv_color_hex(BG), 0);
+    lv_obj_set_style_bg_opa(ctx.screen, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(ctx.screen, 0, 0);
+    lv_obj_set_style_pad_all(ctx.screen, 0, 0);
+    lv_obj_add_event_cb(ctx.screen, deleted, LV_EVENT_DELETE, NULL);
+    lv_obj_t *portrait = lv_image_create(ctx.screen);
+    lv_obj_t *brand = label(ctx.screen, 126, 40, 104,
+                           APP_PRODUCT_FAMILY "\n" APP_PRODUCT_LINE, 0xE6EDF3);
+    lv_obj_t *panel = box(ctx.screen, 16, 126, 208, 132, PANEL);
+    if (!portrait || !brand || !panel) { finish(); return; }
+    lv_image_set_src(portrait, &fish_boot_img); lv_obj_set_pos(portrait, 4, 8);
     lv_obj_set_style_text_font(brand, &font_zh20, 0);
-    lv_obj_set_style_text_color(brand, lv_color_hex(NEON), 0);
-    lv_label_set_text(brand, APP_PRODUCT_NAME);
-    lv_obj_align(brand, LV_ALIGN_TOP_MID, 0, 60);
-
-    // 终端面板
-    lv_obj_t *panel = lv_obj_create(s_ctx.scr);
-    lv_obj_remove_flag(panel, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_size(panel, 208, 132);
-    lv_obj_align(panel, LV_ALIGN_TOP_LEFT, 16, 126);
+    lv_obj_set_style_text_line_space(brand, 4, 0);
     lv_obj_set_style_radius(panel, 6, 0);
-    lv_obj_set_style_bg_color(panel, lv_color_hex(PANEL), 0);
     lv_obj_set_style_border_width(panel, 1, 0);
     lv_obj_set_style_border_color(panel, lv_color_hex(BORDER), 0);
-    lv_obj_set_style_pad_all(panel, 0, 0);
     lv_obj_set_style_shadow_color(panel, lv_color_hex(NEON), 0);
     lv_obj_set_style_shadow_width(panel, 6, 0);
     lv_obj_set_style_shadow_opa(panel, 30, 0);
-    lv_obj_set_style_shadow_spread(panel, 0, 0);
-
-    // 标题栏
-    lv_obj_t *hb = lv_label_create(panel);
-    lv_obj_set_style_text_font(hb, LV_FONT_DEFAULT, 0);
-    lv_obj_set_style_text_color(hb, lv_color_hex(DIM), 0);
-    lv_label_set_text(hb, "PRINTPET // BOOT");
-    lv_obj_align(hb, LV_ALIGN_TOP_LEFT, 8, 6);
-
-    // 内容区(flex 纵向,自动堆叠)
-    lv_obj_t *content = lv_obj_create(panel);
-    lv_obj_remove_flag(content, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_size(content, 188, 100);
-    lv_obj_align(content, LV_ALIGN_TOP_LEFT, 6, 26);
-    lv_obj_set_flex_flow(content, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(content, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-    lv_obj_set_style_pad_row(content, 2, 0);
-    lv_obj_set_style_bg_color(content, lv_color_hex(PANEL), 0);
-    lv_obj_set_style_border_width(content, 0, 0);
-    lv_obj_set_style_pad_all(content, 4, 0);
-
-    s_ctx.log = lv_label_create(content);
-    lv_obj_set_style_text_font(s_ctx.log, LV_FONT_DEFAULT, 0);
-    lv_obj_set_style_text_color(s_ctx.log, lv_color_hex(NEON), 0);
-    lv_obj_set_width(s_ctx.log, 180);
-    lv_label_set_long_mode(s_ctx.log, LV_LABEL_LONG_CLIP);
-    lv_label_set_text(s_ctx.log, "");
-
-    s_ctx.exec = lv_label_create(content);
-    lv_obj_set_style_text_font(s_ctx.exec, LV_FONT_DEFAULT, 0);
-    lv_obj_set_style_text_color(s_ctx.exec, lv_color_hex(ACCENT), 0);
-    lv_obj_set_width(s_ctx.exec, 180);
-    lv_label_set_long_mode(s_ctx.exec, LV_LABEL_LONG_CLIP);
-    lv_label_set_text(s_ctx.exec, "");
-
-    // 光标块(在 exec 之后,随内容下移)
-    s_ctx.cursor = lv_obj_create(content);
-    lv_obj_remove_flag(s_ctx.cursor, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_size(s_ctx.cursor, 7, 12);
-    lv_obj_set_style_bg_color(s_ctx.cursor, lv_color_hex(NEON), 0);
-    lv_obj_set_style_border_width(s_ctx.cursor, 0, 0);
-    lv_obj_set_style_radius(s_ctx.cursor, 0, 0);
-    lv_obj_set_style_pad_all(s_ctx.cursor, 0, 0);
-
-    // 加载条
-    lv_obj_t *track = lv_obj_create(s_ctx.scr);
-    lv_obj_remove_flag(track, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_size(track, 148, 12);
-    lv_obj_align(track, LV_ALIGN_TOP_LEFT, 46, 270);
+    if (!label(panel, 8, 6, 192, "PRINTPET // BOOT", DIM)) { finish(); return; }
+    ctx.log = label(panel, 8, 27, 192, "", NEON);
+    ctx.command = label(panel, 8, 98, 192, "", ACCENT);
+    ctx.cursor = box(panel, 8, 115, 7, 11, NEON);
+    lv_obj_t *track = box(ctx.screen, 46, 274, 148, 12, BORDER);
+    if (!ctx.log || !ctx.command || !ctx.cursor || !track) { finish(); return; }
+    lv_obj_set_style_radius(ctx.cursor, 0, 0);
     lv_obj_set_style_radius(track, 3, 0);
-    lv_obj_set_style_border_width(track, 1, 0);
-    lv_obj_set_style_border_color(track, lv_color_hex(BORDER), 0);
-    lv_obj_set_style_bg_color(track, lv_color_hex(BG), 0);
-    lv_obj_set_style_pad_all(track, 1, 0);
-
-    s_ctx.bar = lv_obj_create(track);
-    lv_obj_remove_flag(s_ctx.bar, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_pos(s_ctx.bar, 0, 0);
-    lv_obj_set_size(s_ctx.bar, 0, 10);
-    lv_obj_set_style_radius(s_ctx.bar, 0, 0);
-    lv_obj_set_style_border_width(s_ctx.bar, 0, 0);
-    lv_obj_set_style_bg_color(s_ctx.bar, lv_color_hex(NEON), 0);
-    lv_obj_set_style_shadow_color(s_ctx.bar, lv_color_hex(NEON), 0);
-    lv_obj_set_style_shadow_width(s_ctx.bar, 8, 0);
-    lv_obj_set_style_shadow_opa(s_ctx.bar, 80, 0);
-
-    s_ctx.ready = lv_label_create(s_ctx.scr);
-    lv_obj_set_style_text_font(s_ctx.ready, LV_FONT_DEFAULT, 0);
-    lv_obj_set_style_text_color(s_ctx.ready, lv_color_hex(NEON), 0);
-    lv_label_set_text(s_ctx.ready, "READY");
-    lv_obj_align(s_ctx.ready, LV_ALIGN_TOP_LEFT, 0, 294);
-    lv_obj_set_style_opa(s_ctx.ready, LV_OPA_MIN, 0);
-    lv_obj_set_style_text_letter_space(s_ctx.ready, 3, 0);
-
-    // 版本号写进首行 boot 日志(不再硬编码)
-    snprintf(s_line0, sizeof(s_line0), "> boot v%s", FW_VERSION);
-    k_lines[0] = s_line0;
-
-    lv_screen_load(s_ctx.scr);
-
-    ESP_LOGI("app_boot", "terminal boot start");
-    s_ctx.typ = lv_timer_create(typing_cb, 14, NULL);
-    s_ctx.cur = lv_timer_create(cursor_cb, 250, NULL);
+    ctx.bar = box(track, 2, 1, 0, 10, NEON);
+    ctx.ready = label(ctx.screen, 0, 294, 240, "READY", NEON);
+    if (!ctx.bar || !ctx.ready) { finish(); return; }
+    lv_obj_set_style_radius(ctx.bar, 0, 0);
+    lv_obj_set_style_text_align(ctx.ready, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_text_letter_space(ctx.ready, 3, 0);
+    lv_obj_set_style_opa(ctx.ready, LV_OPA_TRANSP, 0);
+    lv_screen_load(ctx.screen);
+    if (previous && lv_obj_is_valid(previous) && previous != ctx.screen) lv_obj_delete(previous);
+    ctx.started = lv_tick_get(); ctx.cursor_on = true;
+    ctx.timer = lv_timer_create(tick, 16, NULL);
+    if (!ctx.timer) { finish(); return; }
+    ESP_LOGI("app_boot", "fish terminal splash start v%s", FW_VERSION);
 }
