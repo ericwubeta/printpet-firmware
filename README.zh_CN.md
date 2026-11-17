@@ -36,7 +36,7 @@ python tools/build_bundle.py --build build --output dist --stock-bootloader STOC
 
 ## 验证范围
 
-Build: PASS。主机只读监控/状态逻辑及安装包、模拟Flash保护测试通过。Device tests: NOT RUN（本轮新布局没有实机刷写）。旧版本的人工验收不能替代新布局验收；多机、全部真实打印状态、长期稳定性仍需分别确认。
+Build: PASS。本版已在一台 USB 供电设备完成社区单文件安装、应用/资源读回、原厂身份保留区逐字节核对、重复开机和云连接检查。最后一次开机约 1.8 秒开始头像＋终端动画，约 4.4 秒进入后续界面。测试限于该设备的安装/启动与云连接；不是全部打印机状态、长期负载或物理断电验收。详见 [本版验证记录](docs/FISH-BOOT-VALIDATION.json)。
 
 ## 角色与声音
 

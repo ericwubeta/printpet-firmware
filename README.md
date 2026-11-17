@@ -35,10 +35,10 @@ Use ESP-IDF5.5 for esp32c3. Copy main/secrets.h.example to main/secrets.h, retai
 
 ```text
 idf.py build
-python tools/build_bundle.py --build build --output dist
+python tools/build_bundle.py --build build --output dist --stock-bootloader STOCK_BOOTLOADER.bin
 ```
 
-Use the validated package, not the default flash command for an unknown layout. Build: PASS. Host tests: PASS. Device tests: NOT RUN for this new layout. Previous-version acceptance does not establish new-layout or all-printer-state acceptance.
+Use the validated package, not the default flash command for an unknown layout. Build: PASS. On one USB-powered device, this version passed community-image installation, application/resource readback, byte-for-byte factory-region preservation, repeated startup and cloud connection checks. The final reboot began the portrait/terminal sequence at about 1.8 seconds and handed off at about 4.4 seconds. This does not establish all-printer-state, long-load or physical power-loss acceptance. See the [version-specific evidence](docs/FISH-BOOT-VALIDATION.json).
 
 ## Third-party media
 
