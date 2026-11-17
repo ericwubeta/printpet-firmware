@@ -1,5 +1,7 @@
 # PrintPet Core 1.6.1
 
+本分支新增社区专用单文件安装适配，应用与正式版完全一致。社区安装后需重新配网与登录；GitHub 原有稀疏 ZIP 保持原样。见[适配与验证边界](docs/COMMUNITY-CORE-1.6.1.md)。
+
 [English](README.md) | 简体中文
 
 面向拓竹打印机的只读监控固件，运行于第三方FoloToy AI Passport（ESP32-C3、8MiB Flash、无PSRAM）。本项目不制造硬件，与FoloToy、Bambu Lab无官方关联。

@@ -2,6 +2,10 @@
 
 English | [简体中文](README.zh_CN.md)
 
+This branch adds the dedicated [Core 1.6.1 community installer](docs/COMMUNITY-CORE-1.6.1.md)
+while preserving the exact released application. Community installation requires
+Wi-Fi/account setup again; the ordinary GitHub sparse ZIP remains unchanged.
+
 Read-only Bambu printer monitoring on third-party FoloToy AI Passport hardware: ESP32-C3, 8MiB flash, no PSRAM. No official FoloToy or Bambu Lab affiliation.
 
 ## Choose the firmware you prefer
