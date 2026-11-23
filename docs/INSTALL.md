@@ -48,3 +48,7 @@
 Core 1.6.0加入相机预览、页面记忆和电源管理，不显示精灵；Core 1.5.2仍可作为较简洁的1.5.x选择。Spirit 2.0.1提供六位精灵、状态动作和语音，不含本次Core相机更新。这些版本都是只读监控，不提供打印控制；按喜好选择。已处于共同布局后，可通过对应包的upgrade模式切换，配置字段兼容，不清除网络/账号设置。
 
 Spirit 2.0.1沿用此前本地2.2.0六角色功能重新编号，并非退回早期同号实验代码。芙宁娜/胡桃为《原神》/米哈游非官方同人形象；相关声音为AI克隆合成、非商用，原作中文演绎为钱琛/陶典，不暗示官方或演员背书。
+
+## License and source
+
+This package includes LICENSE, LICENSING.md, and the upstream MIT notice in LICENSES. Distributors must provide the corresponding source for MPL-covered files, either with the download or through a source link for the exact build.

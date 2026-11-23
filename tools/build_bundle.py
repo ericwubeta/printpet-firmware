@@ -24,6 +24,9 @@ def main():
     for src in (root/'tools/installer').glob('*'):
         if src.is_file():shutil.copy2(src,dest/src.name)
     shutil.copy2(root/'docs/INSTALL.md',dest/'INSTALL.md')
+    for name in ('LICENSE', 'LICENSING.md'):
+        shutil.copy2(root / name, dest / name)
+    shutil.copytree(root / 'LICENSES', dest / 'LICENSES')
     release_notes=root/'docs'/f'RELEASE_{product.upper()}_{version}.md'
     if release_notes.is_file():shutil.copy2(release_notes,dest/release_notes.name)
     guard.validate(dest)

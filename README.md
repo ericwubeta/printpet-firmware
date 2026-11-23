@@ -39,6 +39,10 @@ New builds do not inherit this release's board results. Package metadata default
 
 Use the validated package, not the default flash command for an unknown layout. Build: PASS (ESP-IDF 5.5.5, LVGL 9.5.0). The 71 regressions, both MQTT/LVGL read-only host checks, package negatives and simulated Flash transactions passed. This exact application completed 32 minutes of USB-powered idle observation on one ESP32-C3/8MiB board: over 31 minutes after cloud connection with no established-session drop, Wi-Fi loss, PING timeout or crash. The original 20 configuration values were retained. First-install/recovery package behavior is covered by offline/synthetic checks; this application was tested as an upgrade on the shared protected layout. Live printing, camera load, other network conditions and battery-current tests remain open.
 
+## License
+
+The current PrintPet source uses [MPL-2.0](LICENSE). [Firmware licensing](LICENSING.md) describes the upstream MIT code, dependencies, embedded assets, and historical releases.
+
 ## Third-party media
 
 Furina and Hu Tao are unofficial fan depictions from Genshin Impact / miHoYo. Associated prompts are noncommercial AI-cloned synthetic speech, not new actor recordings; original Chinese performances: Qian Chen and Tao Dian. No endorsement is implied, and the software license grants no third-party character, trademark or voice rights.
