@@ -41,7 +41,7 @@ def parse_table(data):
 def validate(folder=ROOT):
     folder=folder.resolve();m=json.loads((folder/'manifest.json').read_text(encoding='utf-8'))
     need(m['format']=='printpet-sparse-v1' and m['flashBytes']==FLASH_BYTES,'Unsupported package')
-    need((m['product'],m['version']) in [('Core','1.5.2'),('Spirit','2.0.1'),('Spirit','2.0.2')],'Wrong product/version')
+    need((m['product'],m['version']) in [('Core','1.5.2'),('Spirit','2.0.1'),('Spirit','2.0.2'),('Spirit','2.0.3')],'Wrong product/version')
     roles={};ranges=[]
     for part in m['parts']:
         role=part['role'];need(role in ADDRESSES and role not in roles,'Unknown or duplicate component')

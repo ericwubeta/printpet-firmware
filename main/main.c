@@ -25,6 +25,7 @@
 #include "app_mqtt.h"
 #include "font_zh.h"
 #include "lvgl.h"
+#include "esp_attr.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_timer.h"
@@ -36,6 +37,19 @@
 #include <stdatomic.h>
 
 static const char *TAG = "main";
+
+// Carry a one-time menu choice across a software restart without changing NVS.
+#define PROVISION_RESTART_MAGIC UINT32_C(0x50505256)
+static RTC_NOINIT_ATTR volatile uint32_t s_provision_restart;
+static bool s_reconfigure;
+static bool s_monitor_boot;
+
+static bool take_provision_restart_request(void)
+{
+    bool requested = esp_reset_reason() == ESP_RST_SW && s_provision_restart == PROVISION_RESTART_MAGIC;
+    s_provision_restart = 0;
+    return requested;
+}
 
 typedef struct {
     bsp_btn_t button;
@@ -107,7 +121,7 @@ static void screen_off_tick(void *arg)
 {
     (void)arg;
     if (!atomic_load_explicit(&s_input_ready, memory_order_acquire) ||
-        s_screen_off || app_provision_needed()) return;   // 启动/输入故障/配网页不熄屏
+        s_screen_off || s_reconfigure || app_provision_needed()) return;   // 配网页保持亮屏
     if (esp_timer_get_time() - s_key_us < 30LL * 1000 * 1000) return;
     bsp_display_backlight(0);
     // 熄屏后停掉 LVGL 的 5ms tick 与全部 lv_timer,CPU 才有连续空闲进入 light sleep。
@@ -164,9 +178,10 @@ static bool screen_off_on_key(bsp_btn_t button, bsp_btn_ev_t ev)
     return false;
 }
 
+enum { DEMO_PRINTER, DEMO_PROVISION };
 static const demo_entry_t DEMOS[] = {
-    { "打印机", app_printer_enter,   app_printer_exit,   app_printer_key },
-    { "配网",   app_provision_enter, app_provision_exit, app_provision_key },
+    [DEMO_PRINTER] = { "打印机", app_printer_enter,   app_printer_exit,   app_printer_key },
+    [DEMO_PROVISION] = { "配网", app_provision_enter, app_provision_exit, app_provision_key },
     { "切网",   app_wifi_menu_enter, app_wifi_menu_exit, app_wifi_menu_key },
     { "精灵",   app_spirit_picker_enter, app_spirit_picker_exit, app_spirit_picker_key },
     { "设置",   app_settings_enter,  app_settings_exit,  app_settings_key },
@@ -222,9 +237,14 @@ static void enter_menu(void) {
 static void process_input(bsp_btn_t btn, bsp_btn_ev_t ev) {
     if (s_active >= 0) {
         if (btn == BSP_BTN_OK && ev == BSP_BTN_LONG) {     // 统一返回
+            if (s_active == DEMO_PROVISION && s_reconfigure) {
+                ESP_LOGI(TAG, "Leaving provisioning to resume monitoring");
+                esp_restart();
+                return;
+            }
             // 打印机页多机概览时,长按 OK 先被 app_printer 内部消化
             // (详情→概览);只有已在概览页才真正退出到菜单。
-            if (s_active == 0 && app_mqtt_machine_count() >= 2 && !app_printer_in_overview()) {
+            if (s_active == DEMO_PRINTER && app_mqtt_machine_count() >= 2 && !app_printer_in_overview()) {
                 DEMOS[s_active].key(btn, ev);   // 交回打印机页:返回机器列表
                 return;
             }
@@ -239,6 +259,13 @@ static void process_input(bsp_btn_t btn, bsp_btn_ev_t ev) {
             s_sel = (btn == BSP_BTN_UP) ? (s_sel + n - 1) % n : (s_sel + 1) % n;
             menu_refresh();
         } else if (btn == BSP_BTN_OK && s_ok[s_sel]) {
+            if (s_sel == DEMO_PROVISION && s_monitor_boot) {
+                // Keep enough heap for the HTTPS handshake by booting without MQTT.
+                s_provision_restart = PROVISION_RESTART_MAGIC;
+                ESP_LOGI(TAG, "Restart requested for provisioning");
+                esp_restart();
+                return;
+            }
             s_active = s_sel;
             ui_pixel_mascot_jump(s_mascot);
             lv_obj_delete(s_menu_scr);
@@ -279,23 +306,22 @@ static void on_key(bsp_btn_t btn, bsp_btn_ev_t ev, void *user)
 
 // 开机动画结束回调(此时已持 LVGL 锁):未配网→配网模式;已配置→联网直达打印机屏
 static void boot_done(void) {
-    if (app_provision_needed()) {
-        ESP_LOGW(TAG, "设备未配网,进入配网模式(热点 + 网页)");
-        app_provision_start();
-        s_active = 1;
-        DEMOS[1].enter();
-        atomic_store_explicit(&s_input_ready, s_ok[0], memory_order_release);
-        return;
+    if (s_reconfigure || app_provision_needed()) {
+        ESP_LOGI(TAG, "Provisioning boot: %s", s_reconfigure ? "requested" : "first setup");
+        s_active = DEMO_PROVISION;
+    } else {
+        app_wifi_start();
+        app_mqtt_start();
+        s_monitor_boot = true;
+        s_active = DEMO_PRINTER;
     }
-    app_wifi_start();
-    app_mqtt_start();
-    s_active = 0;
-    DEMOS[0].enter();
-    atomic_store_explicit(&s_input_ready, s_ok[0], memory_order_release);
+    DEMOS[s_active].enter();
+    atomic_store_explicit(&s_input_ready, s_ok[DEMO_PRINTER], memory_order_release);
 }
 
 void app_main(void) {
-    ESP_LOGI(TAG, APP_PRODUCT_NAME " starting on " APP_HARDWARE_NAME);
+    s_reconfigure = take_provision_restart_request();
+    ESP_LOGI(TAG, APP_PRODUCT_NAME " v" FW_VERSION " starting on " APP_HARDWARE_NAME);
 
     app_spirit_skins_init();
     app_settings_init();                                    // 读取音量/亮度

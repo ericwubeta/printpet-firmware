@@ -1,16 +1,14 @@
-# PrintPet Spirit 2.0.2
+# PrintPet Spirit 2.0.3
 
 English | [简体中文](README.zh_CN.md)
 
-This build combines the approved Da Fei Yu avatar with the terminal-style startup,
-typed lines, cursor and progress bar. It retains read-only monitoring and six
-spirits. The application is new; the character resource pack and identity-safe
-partition geometry remain unchanged from 2.0.1.
+Spirit 2.0.3 fixes SMS verification when setup is reopened from monitoring.
+Choose “配网” in the menu to restart into setup. Log in to resume monitoring,
+or hold OK on the device to leave setup with the existing account. Six spirits,
+short voice prompts and the Da Fei Yu terminal-style startup are still available.
 
 The separate [community installer](docs/COMMUNITY-INSTALL.md) shows first-install
-progress. The recovery ZIP instead uses the selected standard bootloader and
-sparse addresses. Generic files contain no device settings. Local device tests
-preserved this device's newly configured account/network data privately.
+progress and requires setting up Wi-Fi and the account again. The [recovery ZIP](https://github.com/ericwubeta/printpet-firmware/releases/tag/v2.0.3) uses the standard bootloader and preserves existing local configuration during a compatible installation.
 
 Read-only Bambu printer monitoring on third-party FoloToy AI Passport hardware: ESP32-C3, 8MiB flash, no PSRAM. No official FoloToy or Bambu Lab affiliation.
 
@@ -38,7 +36,9 @@ idf.py build
 python tools/build_bundle.py --build build --output dist --stock-bootloader STOCK_BOOTLOADER.bin
 ```
 
-Use the validated package, not the default flash command for an unknown layout. Build: PASS. On one USB-powered device, this version passed community-image installation, application/resource readback, byte-for-byte factory-region preservation, repeated startup and cloud connection checks. The final reboot began the portrait/terminal sequence at about 1.8 seconds and handed off at about 4.4 seconds. This does not establish all-printer-state, long-load or physical power-loss acceptance. See the [version-specific evidence](docs/FISH-BOOT-VALIDATION.json).
+On one device, the exact 2.0.3 application passed the app-only update, configuration and factory-region readback, reopened setup, SMS delivery and cloud reconnection. The separate complete ZIP and single-file installer have their own validation results. See the [2.0.3 release](https://github.com/ericwubeta/printpet-firmware/releases/tag/v2.0.3) for their scope and checksums.
+
+See [firmware licensing](LICENSING.md) for terms covering the software, inherited code and media.
 
 ## Third-party media
 

@@ -27,4 +27,4 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 # v2.1.8: alternate page phrase per page/role, longer pre-roll on event clips,
 #         home chatter with three wordings; version moved off the model title.
 # v2.2.0: six spirits, versioned read-only external character resources.
-project(passport_printer VERSION 2.0.2)
+project(passport_printer VERSION 2.0.3)

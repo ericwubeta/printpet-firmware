@@ -1,10 +1,10 @@
-# PrintPet Spirit 2.0.2
+# PrintPet Spirit 2.0.3
 
 [English](README.md) | 简体中文
 
-本版开机将已批准的大肥鱼头像与终端逐行打字、光标和加载条结合。只读监控和六位精灵功能延续，应用已更新，精灵资源包与身份保护分区布局沿用 2.0.1。
+2.0.3 修复从监控重新进入配网后发不出短信验证码的问题。在菜单选「配网」，设备会重启进入配网页。登录成功后自动回监控，也可在设备上长按 OK，沿用已有账号退出配网。六位精灵、短语音和大肥鱼终端开机继续可用。
 
-社区单文件继续使用[首装进度页](docs/COMMUNITY-INSTALL.md)；完整恢复 ZIP 采用标准引导和分地址写入，两者不要混用。通用产物不包含个人设置。本轮本机测试单独保留并恢复了这台设备刚配置好的账号和网络信息，没有夹进公开固件。
+社区单文件继续使用[首装进度页](docs/COMMUNITY-INSTALL.md)，刷入后需要重新配网及登录。[完整安装与恢复 ZIP](https://github.com/ericwubeta/printpet-firmware/releases/tag/v2.0.3) 采用标准引导和分地址写入，按安装说明可保留现有设置。
 
 面向拓竹打印机的只读监控固件，运行于第三方FoloToy AI Passport（ESP32-C3、8MiB Flash、无PSRAM）。本项目不制造硬件，与FoloToy、Bambu Lab无官方关联。
 
@@ -36,7 +36,9 @@ python tools/build_bundle.py --build build --output dist --stock-bootloader STOC
 
 ## 验证范围
 
-Build: PASS。本版已在一台 USB 供电设备完成社区单文件安装、应用/资源读回、原厂身份保留区逐字节核对、重复开机和云连接检查。最后一次开机约 1.8 秒开始头像＋终端动画，约 4.4 秒进入后续界面。测试限于该设备的安装/启动与云连接；不是全部打印机状态、长期负载或物理断电验收。详见 [本版验证记录](docs/FISH-BOOT-VALIDATION.json)。
+正式包采用实测的同一份 2.0.3 应用。它在一台设备上完成了仅应用区升级，读回确认原有配置和原厂身份区保持一致，且重新配网、短信接收、重启恢复监控均通过。完整 ZIP 和社区单文件的验证范围及校验值见 [2.0.3 发布页](https://github.com/ericwubeta/printpet-firmware/releases/tag/v2.0.3)。
+
+软件、继承代码与媒体的许可范围见 [LICENSING.md](LICENSING.md)。
 
 ## 角色与声音
 

@@ -1,88 +1,35 @@
 {
-  "date": "2026-11-16",
-  "version": "2.0.1",
-  "communityImageSha256": "bffcf9c2773a4faaacea7eb34267728522854e953c79c631099e4ac8d9f9e53e",
-  "communityImageBytes": 3211264,
-  "bootloaderSha256": "f793c40592a087cf646f3f7d25a259ae328cf8dba9ab7a71f67f73b4ad5390af",
-  "bootloaderBytes": 24624,
-  "dramUsedBytes": 19604,
-  "dramLimitBytes": 20480,
-  "testedDeviceCount": 1,
-  "hardwareScope": "ESP32-C3 revision1.1, 8MiB flash, USB powered",
-  "originalSubmission": {
-    "sha256": "3d95446bed0e2fae4982c4127b78bbc09243fce3e85b259764346ce36a98086d",
-    "permanentBlackScreenReproducedOnThisDevice": false,
-    "firstStartupEvents": {
-      "install_verified": 34.332,
-      "app_main": 35.742,
-      "display_ready": 35.895
-    },
-    "userConfirmedProvisioningScreen": true
+  "version": "2.0.3",
+  "applicationSha256": "d571d9ad249cf53cc06a8db3db07be89d2afaed2abfc6d3b11ba8c78d5fc6f88",
+  "applicationBytes": 4174144,
+  "actualDevice": {
+    "method": "application-only upgrade on one AI Passport with an existing configuration",
+    "savedSettingsAndVendorRegionReadbackUnchanged": true,
+    "reopenedSetupHttpsPassed": true,
+    "oneSmsReceived": true,
+    "resumedCloudMonitoring": true
   },
-  "progressRevision": {
-    "firstInstallFromSameDevicePreviousCoreApplication": true,
-    "progressScreenUserConfirmed": true,
-    "progressAdvancingUserConfirmed": true,
-    "automaticProvisioningHandoffUserConfirmed": true,
-    "firstStartupEvents": {
-      "install_verified": 37.45,
-      "app_main": 38.142,
-      "display_ready": 39.012
-    },
-    "firstStartupObservationSeconds": 100.1,
-    "secondStartup": {
-      "captureSeconds": 35.114,
-      "events": {
-        "app_main": 0.718,
-        "display_ready": 1.593,
-        "lvgl_ready": 1.627,
-        "setup_ready": 4.22
-      },
-      "logBytes": 6089,
-      "rawLogPrivate": true
-    },
-    "installedReadback": {
-      "vendorUnchangedAfterStartup": true,
-      "markerMatches": true,
-      "applicationChipDigestMatchesOriginal": true,
-      "resourcesChipDigestMatchesOriginal": true,
-      "applicationSha256": "8ad4f4e69623e2ef236ba96bca1001ad3c84ac4d0e3ec0dfdbe857a5d3cfd277",
-      "resourcesSha256": "b07a354f3fd0edcfe90c21381c00f5d341ddc831aaf08a604c74d8d5a801fd5d",
-      "actualDeviceUsed": true
-    },
-    "originalSettingsRestored": {
-      "restoredFromSameDeviceBackup": true,
-      "offset": 36864,
-      "bytes": 28672,
-      "chipDigestVerified": true,
-      "noVendorWrite": true,
-      "settingsEmbeddedInPublicFirmware": false
-    },
-    "finalStartup": {
-      "captureSeconds": 35.138,
-      "events": {
-        "app_main": 0.718,
-        "display_ready": 1.599,
-        "lvgl_ready": 1.633
-      },
-      "logBytes": 7824,
-      "rawLogPrivate": true
-    },
-    "cloudConnectedAfterRestoration": true,
-    "panicObserved": false,
-    "assertObserved": false
+  "completeZip": {
+    "file": "PrintPet-Spirit-2.0.3-install-recovery.zip",
+    "bytes": 3053803,
+    "sha256": "54be6320490eea1a46c5a539e2bf0853785ee39a53d54d16bf46fba23bcc7b0e",
+    "crcAndManifestPassed": true,
+    "offlineInstallerValidationPassed": true,
+    "physicalInstallScriptRun": false
   },
-  "applicationAndResourcesUnchanged": true,
-  "imageBytesFrom0x8000Unchanged": true,
-  "originalFactoryRegionByteForBytePreserved": true,
-  "physicalPowerLossTested": false,
-  "reviewerDeviceFailureReproduced": false,
-  "originalReviewRootCauseConfirmed": false,
-  "rawDeviceDataPrivateOutsideRepository": true,
-  "limitations": [
-    "One physical device; no new real-print or all-printer-model acceptance.",
-    "The original reviewer device was not available. The known silent first-start wait was reproduced and improved.",
-    "Existing protocol interruption models and original QEMU reports cover the unchanged data installation protocol, not physical power cuts.",
-    "Migration from a prior global deep-sleep GPIO hold state is not separately validated."
-  ]
+  "community": {
+    "file": "PrintPet-Spirit-2.0.3-community.bin",
+    "bytes": 3211264,
+    "sha256": "611f9484696080f712e856e20764e40ae3cf591d74001fbb02d328bd9767f235",
+    "qemuFirstInstall": true,
+    "qemuApplicationAndResourceInterruptionRecovery": true,
+    "syntheticVendorRegionUnchanged": true,
+    "factoryIdentityProtectedRange": [
+      "0x310000",
+      "0x370000"
+    ],
+    "settingsRegionBlank": true,
+    "physicalInstallOfThisContainer": false
+  },
+  "source": "https://github.com/ericwubeta/printpet-firmware/tree/v2.0.3"
 }

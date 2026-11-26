@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## v2.0.3 — 2026-11-26 (PrintPet Spirit)
+
+- 修复重新配网时验证码发不出去的问题。配网期间暂时停下后台打印监控，完成后恢复。
+- 重新配网时优先连接上次使用的已保存网络。长按 OK 可退出配网并恢复监控。
+- Rearranged setup and monitoring so reopening setup can send SMS verification codes reliably. Setup prefers the last used saved network. Hold OK to leave setup and resume monitoring.
+
 ## v1.5.1 — 2026-11-13 (PrintPet Core)
 
 - Remove the printer-control page, selection/stop-confirmation state, pause/resume/stop APIs, chamber-light API and generic command publisher.

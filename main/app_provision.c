@@ -1086,18 +1086,28 @@ void app_provision_start(void)
         ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wcfg));
         ESP_ERROR_CHECK(esp_wifi_start());
 
-        // 已保存过 WiFi 但账号还没配完(例如上次登录失败后重启):直接连上,
-        // 网页一打开就能发验证码,不用重新点第 1 步。
+        // Prefer the last active saved network when returning from monitoring.
+        // Use the saved password, and fall back to the first occupied slot.
         device_config_t saved;
         config_load(&saved);
-        if (saved.wifi_ssid[0][0]) {
+        wifi_config_t last = { 0 };
+        esp_wifi_get_config(WIFI_IF_STA, &last);
+        int slot = -1;
+        for (int i = 0; i < CFG_WIFI_MAX; i++) {
+            if (!saved.wifi_ssid[i][0]) continue;
+            if (slot < 0) slot = i;
+            if (strncmp(saved.wifi_ssid[i], (const char *)last.sta.ssid, sizeof(last.sta.ssid)) == 0) {
+                slot = i;
+                break;
+            }
+        }
+        if (slot >= 0) {
             wifi_config_t sc = { 0 };
-            strlcpy((char *)sc.sta.ssid, saved.wifi_ssid[0], sizeof(sc.sta.ssid));
-            strlcpy((char *)sc.sta.password, saved.wifi_pass[0], sizeof(sc.sta.password));
+            strlcpy((char *)sc.sta.ssid, saved.wifi_ssid[slot], sizeof(sc.sta.ssid));
+            strlcpy((char *)sc.sta.password, saved.wifi_pass[slot], sizeof(sc.sta.password));
             esp_wifi_set_config(WIFI_IF_STA, &sc);
             esp_err_t e = esp_wifi_connect();
-            ESP_LOGI(TAG, "按已存 WiFi 自动连接 %s: %s",
-                     saved.wifi_ssid[0], esp_err_to_name(e));
+            ESP_LOGI(TAG, "Connect saved Wi-Fi slot %d: %s", slot + 1, esp_err_to_name(e));
         }
     } else {
         // 已联网机器从菜单进配网:不能在 STA 运行中直接 set_mode(APSTA) ——
@@ -1177,7 +1187,7 @@ void app_provision_enter(void)
     lv_label_set_long_mode(hint, LV_LABEL_LONG_WRAP);
     lv_obj_align(hint, LV_ALIGN_TOP_LEFT, 18, 236);
 
-    s_status = plabel(s_scr, "等待配置...", &font_zh14, 0x6B7A8C);
+    s_status = plabel(s_scr, "等待配置 · 长按OK返回", &font_zh14, 0x6B7A8C);
     lv_obj_align(s_status, LV_ALIGN_BOTTOM_MID, 0, -14);
 
     lv_screen_load(s_scr);
