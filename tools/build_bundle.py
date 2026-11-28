@@ -18,7 +18,7 @@ def main():
             raise RuntimeError('Wrong selected ESP-IDF5.5 stock ESP32-C3 bootloader')
     items=[('bootloader',stock),('partitions',a.build/'partition_table/partition-table.bin'),('application',a.build/'passport_printer.bin')]
     if product=='Spirit':
-        resource_version='2.0.1' if version in {'2.0.2', '2.0.3'} else version
+        resource_version='2.0.1' if version in {'2.0.2', '2.0.3', '2.0.6'} else version
         items.append(('resources',root/f'resources/spirit-resources-{resource_version}.bin'))
     parts=[]
     for role,src in items:
@@ -32,6 +32,9 @@ def main():
         target = dest / name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(root / name, target)
+    release_notes = root / 'docs' / f'RELEASE_{product.upper()}_{version}.md'
+    if release_notes.is_file():
+        shutil.copy2(release_notes, dest / release_notes.name)
     guard.validate(dest)
     (dest/'SHA256SUMS.txt').write_text(''.join(f'{sha(q)}  {q.relative_to(dest).as_posix()}\n' for q in sorted(dest.rglob('*')) if q.is_file()),encoding='utf-8')
     archive=a.output/f'PrintPet-{product}-{version}-install-recovery.zip'

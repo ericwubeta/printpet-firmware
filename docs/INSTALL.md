@@ -1,6 +1,6 @@
-# PrintPet Spirit 2.0.3 完整安装／恢复包
+# PrintPet Spirit 2.0.6 完整安装／恢复包
 
-本版修复重新配网时短信验证码发送失败的问题。选择「配网」后设备会重启进入配网页，暂停后台监控；完成配置或长按 OK 退出后恢复监控。此 ZIP 使用标准引导程序，社区单文件的安装方式见 [社区安装说明](https://github.com/ericwubeta/printpet-firmware/blob/v2.0.3/docs/COMMUNITY-INSTALL.md)。
+本版新增外挂耗材页，重连时保留上次读取的料名与颜色，并修复读取云状态时因内存不足导致的断连。此 ZIP 使用标准引导程序。 [社区单文件安装说明](https://github.com/ericwubeta/printpet-firmware/blob/v2.0.6/docs/COMMUNITY-INSTALL.md)
 
 适用：FoloToy AI Passport，ESP32-C3、8MiB Flash、无PSRAM。它是社区固件，不是厂商官方固件。
 
@@ -33,12 +33,12 @@
 
 ## 验证边界
 
-本包中的 2.0.3 应用已在一台 AI Passport 上完成应用区升级、现有 Wi-Fi／账号／打印机配置与原厂身份区回读、重新配网、验证码实际接收和重启恢复监控。完整 ZIP 通过离线校验，包内完整安装脚本路径没有在本轮另行刷写验收。更多记录见 [本版 Release](https://github.com/ericwubeta/printpet-firmware/releases/tag/v2.0.3)。
+本包中的 2.0.6 应用已在一台 AI Passport 上完成保留配置的应用升级，X2D 外挂夜光料正常显示，连云后 312 秒内未复现 Wi-Fi 或云掉线。完整 ZIP 通过离线与安装流程模拟检查，未另行实机刷写完整包。 [本版 Release 和验证记录](https://github.com/ericwubeta/printpet-firmware/releases/tag/v2.0.6)
 
 ## 产品区别
 
-Core 1.6.1 提供简洁界面，Spirit 2.0.3 提供六位精灵、状态动作和语音。两条都是只读监控。切换时根据原引导和分区选择上面的安装方式。
+Core 1.6.2 提供简洁监控和可选相机预览，Spirit 2.0.6 提供六位精灵、状态动作和语音。两者均为只读监控。根据现有引导和分区选择安装方式。
 
 Spirit 2.0.1沿用此前本地2.2.0六角色功能重新编号，并非退回早期同号实验代码。芙宁娜/胡桃为《原神》/米哈游非官方同人形象；相关声音为AI克隆合成、非商用，原作中文演绎为钱琛/陶典，不暗示官方或演员背书。
 
-对应源码见 [v2.0.3](https://github.com/ericwubeta/printpet-firmware/tree/v2.0.3)。包内附 `LICENSE`、`LICENSING.md`、`LICENSES/MIT.txt`，媒体及第三方依赖适用各自条款。
+对应源码见 [v2.0.6](https://github.com/ericwubeta/printpet-firmware/tree/v2.0.6)。包内附 `LICENSE`、`LICENSING.md`、`LICENSES/MIT.txt`，媒体及第三方依赖适用各自条款。
