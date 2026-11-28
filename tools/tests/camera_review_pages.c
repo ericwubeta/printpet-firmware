@@ -1,5 +1,6 @@
 #include "camera_review_common.h"
-#define PAGE_MAX 9
+#define EXTERNAL_SLOT 9
+#define PAGE_MAX (EXTERNAL_SLOT + 1)
 #define CAMERA_SLOT 8
 #define CAMERA_VIEW_Y 92
 #define CAMERA_VIEW_H 135
@@ -30,14 +31,15 @@ static void app_camera_stop(void) { camera_stopping = true; stopped++; }
 static void page_camera_build(lv_obj_t *p) { p->kind=8; }
 static void page_progress_build(lv_obj_t *p) { p->kind=0; }
 static void page_temp_build(lv_obj_t *p) { p->kind=1; }
-static void page_ams_build(lv_obj_t *p, int index) { assert(index>=0 && index<4); p->kind=index+2; }
+static void page_material_build(lv_obj_t *p, bool external) { p->kind = external ? EXTERNAL_SLOT : 2; }
 static void page_device_build(lv_obj_t *p) { p->kind=6; }
 /* @PAGES@ */
 int main(int argc, char **argv) {
-    const int sequence[] = {0,8,1,2,3,4,5,6,8,0};
+    const int sequence[] = {0,8,1,2,3,4,5,EXTERNAL_SLOT,6,8,0};
     for (int loop = 0; loop < 50; loop++) for (unsigned i = 0; i < sizeof(sequence)/sizeof(*sequence); i++) {
         int show = sequence[i], prior_created = created; apply_page_vis(show);
-        assert(live_pages == 1 && s_pages[show] && s_pages[show]->kind == show);
+        int kind = show >= 2 && show <= 5 ? 2 : show;
+        assert(live_pages == 1 && s_pages[show] && s_pages[show]->kind == kind);
         if (created != prior_created) assert(s_dirty);
         for (int page = 0; page < PAGE_MAX; page++) assert((s_pages[page] != NULL) == (page == show));
         int before = created; s_dirty = false; apply_page_vis(show);

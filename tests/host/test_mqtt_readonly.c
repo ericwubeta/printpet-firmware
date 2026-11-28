@@ -134,6 +134,19 @@ int esp_mqtt_client_publish(esp_mqtt_client_handle_t client, const char *topic, 
 static void fire(esp_mqtt_event_id_t event, esp_mqtt_event_t *data)
 { assert(event_handler); event_handler(event_argument, "host-mqtt", event, data); }
 
+static bambu_state_t report(int index, const char *payload)
+{
+    char topic[48];
+    snprintf(topic, sizeof(topic), "device/CORE-HOST-%d/report", index + 1);
+    int len = (int)strlen(payload);
+    esp_mqtt_event_t data = {.topic = topic, .topic_len = (int)strlen(topic),
+                             .data = (char *)payload, .data_len = len, .total_data_len = len};
+    fire(MQTT_EVENT_DATA, &data);
+    bambu_state_t state;
+    app_mqtt_snapshot(index, &state);
+    return state;
+}
+
 static void exercise(int count)
 {
     machine_count = count;
@@ -155,16 +168,9 @@ static void exercise(int count)
     assert(sent == (unsigned)(count * 3));
     for (int i = 0; i < count; i++) assert(sent_by_machine[i] == 3);
 
-    char topic[] = "device/CORE-HOST-1/report";
-    char payload[] = "{\"print\":{\"gcode_state\":\"RUNNING\",\"mc_percent\":37,\"mc_remaining_time\":21,\"nozzle_temper\":210,\"bed_temper\":60}}";
-    esp_mqtt_event_t data = {0};
-    data.topic = topic;
-    data.topic_len = (int)strlen(topic);
-    data.data = payload;
-    data.data_len = data.total_data_len = (int)strlen(payload);
-    fire(MQTT_EVENT_DATA, &data);
-    bambu_state_t state;
-    app_mqtt_snapshot(0, &state);
+    bambu_state_t state = report(0,
+        "{\"print\":{\"gcode_state\":\"RUNNING\",\"mc_percent\":37,\"mc_remaining_time\":21,"
+        "\"nozzle_temper\":210,\"bed_temper\":60}}");
     assert(!strcmp(state.gcode_state, "RUNNING") && state.pct == 37);
     assert(state.nozzle_t == 210 && state.bed_t == 60 && state.remain_min == 21);
     assert(sent == (unsigned)(count * 3));
@@ -179,10 +185,63 @@ static void exercise(int count)
     printf("PASS: %d printers, connect/manual/timer/reconnect emit only pushall; telemetry retained\n", count);
 }
 
+static void exercise_external_spools(void)
+{
+    machine_count = 2;
+    app_mqtt_start();
+    fire(MQTT_EVENT_CONNECTED, NULL);
+    unsigned before = sent;
+
+    bambu_state_t st = report(0,
+        "{\"print\":{\"vt_tray\":{\"id\":\"255\",\"tray_id_name\":\"Black PLA\",\"tray_color\":\"000000FF\",\"remain\":-1}}}");
+    assert(st.ams_count == 0 && st.external_trays[0].is_used && !st.external_trays[0].active);
+    assert(!strcmp(st.external_trays[0].tray_name, "Black PLA"));
+    assert(st.external_trays[0].color_valid && st.external_trays[0].tray_color == 0);
+    assert(st.external_trays[0].tray_pct == -1 && !st.external_trays[1].is_used);
+
+    st = report(0, "{\"print\":{\"ams\":{\"tray_now\":0,\"ams\":[{\"tray\":[{\"tray_type\":\"PETG\"}]}]},"
+                   "\"vt_tray\":{\"remain\":\"42\",\"tray_weight\":\"1000\"}}}");
+    assert(st.ams_count == 1 && st.ams_active && st.ams[0].tray[0].active);
+    assert(st.external_trays[0].tray_remain == 420 && !st.external_trays[0].active);
+
+    st = report(0, "{\"print\":{\"ams\":{\"tray_now\":\"254\"}}}");
+    assert(st.ams_count == 1 && !st.ams_active && !st.ams[0].tray[0].active);
+    assert(st.external_trays[0].active && st.external_trays[0].tray_remain == 420);
+
+    st = report(0, "{\"print\":{\"vir_slot\":["
+                   "{\"id\":\"254\",\"tray_type\":\"PLA\",\"tray_sub_brands\":\"PLA Glow\",\"tray_color\":\"C0DDEEFF\",\"remain\":null},"
+                   "{\"id\":\"255\",\"tray_type\":\"\",\"tray_color\":\"000000FF\",\"remain\":-1}],"
+                   "\"vt_tray\":{\"tray_type\":\"STALE\"}}}");
+    assert(st.ams_count == 1 && st.external_trays[0].active && !st.external_trays[1].is_used);
+    assert(!strcmp(st.external_trays[0].tray_name, "PLA Glow") && !strcmp(st.external_trays[0].tray_type, "PLA"));
+    assert(st.external_trays[0].tray_color == 0xc0ddee && st.external_trays[0].tray_pct == -1);
+    assert(st.external_trays[0].tray_weight == 0);
+
+    st = report(0, "{\"print\":{\"vir_slot\":[{\"id\":65024,\"remain\":\"0\"},{\"id\":\"65280\","
+                   "\"tray_type\":\"ASA\",\"tray_color\":\"112233FF\",\"remain\":65}],\"ams\":{\"tray_now\":65280}}}");
+    assert(st.external_trays[0].tray_pct == 0 && !strcmp(st.external_trays[0].tray_name, "PLA Glow"));
+    assert(!st.external_trays[0].active && st.external_trays[1].active && st.external_trays[1].tray_pct == 65);
+    st = report(0, "{\"print\":{\"ams\":{\"tray_now\":255},\"vt_tray\":{\"tray_type\":\"STALE\"},\"mc_percent\":56}}");
+    assert(!st.external_trays[0].active && !st.external_trays[1].active);
+    assert(!strcmp(st.external_trays[1].tray_type, "ASA") && st.external_trays[1].tray_pct == 65);
+
+    st = report(1, "{\"print\":{\"vir_slot\":[{\"id\":254,\"tray_type\":\"TPU\",\"remain\":-1}]}}");
+    assert(st.ams_count == 0 && !st.material_slot_known && st.external_trays[0].is_used);
+    assert(!st.external_trays[0].active && !strcmp(st.external_trays[0].tray_type, "TPU"));
+    st = report(0, "{\"print\":{\"vir_slot\":[]}}");
+    assert(st.ams_count == 1 && !st.external_trays[0].is_used && !st.external_trays[1].is_used);
+    app_mqtt_snapshot(1, &st);
+    assert(st.external_trays[0].is_used && !strcmp(st.external_trays[0].tray_type, "TPU"));
+    assert(sent == before);
+    app_mqtt_stop();
+    puts("PASS: independent external spools, partial updates, slot selection and printer isolation");
+}
+
 int main(void)
 {
     app_mqtt_request_now(0);
     assert(sent == 0);
     for (int count = 1; count <= 4; count++) exercise(count);
+    exercise_external_spools();
     return 0;
 }

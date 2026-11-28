@@ -19,7 +19,8 @@ static int s_lock;
 #define xSemaphoreGive(...) ((void)0)
 void app_notify_trigger(notify_kind_t kind) {}
 /* @MQTT@ */
-#define PAGE_MAX 9
+#define EXTERNAL_SLOT 9
+#define PAGE_MAX (EXTERNAL_SLOT + 1)
 #define CAMERA_SLOT 8
 static bool s_ov_mode, s_prev_valid, s_dirty;
 static int s_midx, s_cur, s_restore_slot, s_pages_n, s_slot[PAGE_MAX];
@@ -35,6 +36,7 @@ static void remember_view(void) { remember_calls++; remembered_slot = s_slot[s_c
 #define refresh_progress(...) ((void)0)
 #define refresh_temp(...) ((void)0)
 #define refresh_ams(...) ((void)0)
+#define refresh_materials(...) ((void)0)
 #define refresh_device(...) ((void)0)
 /* @REFRESH@ */
 static void report(int machine, const char *json) { parse_report(machine,json,(int)strlen(json)); }

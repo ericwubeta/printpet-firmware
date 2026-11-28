@@ -46,6 +46,7 @@ void config_mark_provisioned(void);
 
 // Last printer view, stored separately from account/network configuration.
 // slot is the stable physical page type, not its changing navigation index.
+#define PRINTER_VIEW_EXTERNAL_SLOT 9
 typedef struct {
     uint8_t version;
     uint8_t slot;

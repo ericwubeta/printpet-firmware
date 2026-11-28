@@ -24,7 +24,8 @@
 #include "esp_heap_caps.h"
 #endif
 
-#define PAGE_MAX 9          // Persisted slots; slot 7 belonged to printer controls
+#define EXTERNAL_SLOT PRINTER_VIEW_EXTERNAL_SLOT
+#define PAGE_MAX (EXTERNAL_SLOT + 1)  // Persisted slots; slot 7 belonged to printer controls
 #define CAMERA_SLOT 8
 #define CAMERA_VIEW_Y 92
 #define CAMERA_VIEW_H 135
@@ -56,7 +57,7 @@ static lv_obj_t *s_pages[PAGE_MAX];
 static int s_pages_n;
 static int s_cur;
 static int s_midx;                 // 当前查看的机器下标(0..3)
-static int s_restore_slot = -1;    // AMS restore waits for the first printer report
+static int s_restore_slot = -1;    // Material page restore waits for topology data
 
 // ------------------------------------------------------------ 机器概览(多机列表)
 static bool s_ov_mode;      // true = 停留在机器列表(未进入详情)
@@ -69,7 +70,7 @@ static lv_obj_t *s_ov_pct[BAMBU_MACHINE_MAX];
 static lv_obj_t *s_ov_bar[BAMBU_MACHINE_MAX];
 static lv_obj_t *s_ov_state[BAMBU_MACHINE_MAX];
 static int s_ov_bar_w;
-static int s_slot[PAGE_MAX];   // 0 progress, 8 camera, 1 temperature, 2..5 AMS, 6 device
+static int s_slot[PAGE_MAX];   // 0 progress, 8 camera, 1 temperature, 2..5 AMS, 9 external, 6 device
 static lv_timer_t *s_timer;
 static lv_timer_t *s_fast;     // 30ms 快速重绘:承接按键回调里延后的重绘请求
 static bool s_need_refresh;    // 按键触发的重绘请求(放到 LVGL 任务里执行)
@@ -96,10 +97,11 @@ static lv_obj_t *s_noz_cur, *s_noz_tgt, *s_noz_bar, *s_noz_mark;
 static lv_obj_t *s_bed_cur, *s_bed_tgt, *s_bed_bar, *s_bed_mark;
 static lv_obj_t *s_cham_cur, *s_cham_bar;
 static lv_obj_t *s_temp_remain;
-// AMS 页(最多 4 台 × 4 槽)
-static lv_obj_t *s_ams_title[4], *s_ams_sub[4];
-static lv_obj_t *s_ams_swatch[4][4], *s_ams_type[4][4], *s_ams_remain[4][4], *s_ams_mark[4][4];
-static lv_obj_t *s_ams_gauge[4][4];     // 槽位右侧余量竖条
+// 只保留当前可见的详情页，AMS 和外挂页共用一组控件指针。
+static lv_obj_t *s_material_title, *s_material_status;
+static lv_obj_t *s_material_card[BAMBU_TRAY_MAX], *s_material_swatch[BAMBU_TRAY_MAX];
+static lv_obj_t *s_material_name[BAMBU_TRAY_MAX], *s_material_remain[BAMBU_TRAY_MAX];
+static lv_obj_t *s_material_mark[BAMBU_TRAY_MAX], *s_material_gauge[BAMBU_TRAY_MAX];
 // 设备页
 static lv_obj_t *s_d_sn, *s_d_rssi, *s_d_ip, *s_d_cloud, *s_d_wifi_rssi, *s_d_wifi, *s_d_uptime;
 static lv_obj_t *s_d_hms_panel, *s_d_hms_lbl;
@@ -684,138 +686,100 @@ static void refresh_temp(const bambu_state_t *st)
     lv_label_set_text(s_temp_remain, t);
 }
 
-// ------------------------------------------------------------ AMS 料槽页
+// ------------------------------------------------------------ AMS 和外挂耗材页
 
-static void page_ams_build(lv_obj_t *p, int ams_idx)
+static void page_material_build(lv_obj_t *p, bool external)
 {
-    // 标题(刷新时更新台数/湿度)
-    s_ams_title[ams_idx] = label(p, &font_zh14, C_GREEN_L, LV_TEXT_ALIGN_CENTER);
-    lv_label_set_text(s_ams_title[ams_idx], "耗材 · AMS");
-    lv_obj_align(s_ams_title[ams_idx], LV_ALIGN_TOP_MID, 0, 4);
-    // 副标题:当前在用槽的完整料名(卡片里只放得下材质简称)
-    s_ams_sub[ams_idx] = label(p, &font_zh14, C_DIM, LV_TEXT_ALIGN_CENTER);
-    lv_label_set_text(s_ams_sub[ams_idx], "在用 --");
-    lv_label_set_long_mode(s_ams_sub[ams_idx], LV_LABEL_LONG_CLIP);
-    lv_obj_set_width(s_ams_sub[ams_idx], 220);
-    lv_obj_align(s_ams_sub[ams_idx], LV_ALIGN_TOP_MID, 0, 20);
+    s_material_title = label(p, &font_zh14, C_GREEN_L, LV_TEXT_ALIGN_CENTER);
+    lv_label_set_text(s_material_title, external ? "外挂耗材" : "耗材 · AMS");
+    lv_obj_align(s_material_title, LV_ALIGN_TOP_MID, 0, 4);
+    s_material_status = label(p, &font_zh14, C_DIM, LV_TEXT_ALIGN_CENTER);
+    lv_label_set_long_mode(s_material_status, LV_LABEL_LONG_CLIP);
+    lv_obj_set_width(s_material_status, 220);
+    lv_obj_align(s_material_status, LV_ALIGN_TOP_MID, 0, 20);
 
-    // 2x2 料槽卡片(每张 100x98)
-    static const int GX[4] = { 14, 126 };
-    static const int GY[4] = { 44, 148 };
-    for (int i = 0; i < 4; i++) {
-        int col = i % 2, row = i / 2;
-        int x = GX[col], y = GY[row];
-        card(p, x, y, 100, 98, C_PANEL2);
+    int tray_count = external ? BAMBU_EXTERNAL_MAX : BAMBU_TRAY_MAX;
+    for (int i = 0; i < tray_count; i++) {
+        int x = 14 + i % 2 * 112;
+        int y = 44 + i / 2 * 104;
+        lv_obj_t *tile = s_material_card[i] = card(p, x, y, 100, 98, C_PANEL2);
 
-        s_ams_swatch[ams_idx][i] = rect(p, x + 9, y + 8, 58, 52, 0x141C26);
-        lv_obj_set_style_radius(s_ams_swatch[ams_idx][i], 6, 0);
-        lv_obj_set_style_border_width(s_ams_swatch[ams_idx][i], 2, 0);
-        lv_obj_set_style_border_color(s_ams_swatch[ams_idx][i], lv_color_hex(C_LINE), 0);
+        s_material_swatch[i] = rect(tile, 8, 7, 58, 52, 0x141C26);
+        lv_obj_set_style_radius(s_material_swatch[i], 6, 0);
+        lv_obj_set_style_border_width(s_material_swatch[i], 2, 0);
+        lv_obj_set_style_border_color(s_material_swatch[i], lv_color_hex(C_LINE), 0);
 
-        // 右侧余量竖条(满量程 1000g),填充自底向上
-        lv_obj_t *track = rect(p, x + 73, y + 8, 12, 52, C_LINE);
+        lv_obj_t *track = rect(tile, 72, 7, 12, 52, C_LINE);
         lv_obj_set_style_radius(track, 3, 0);
-        s_ams_gauge[ams_idx][i] = rect(track, 0, 0, 12, 0, C_GREEN_L);
-        lv_obj_set_style_radius(s_ams_gauge[ams_idx][i], 3, 0);
-        lv_obj_align(s_ams_gauge[ams_idx][i], LV_ALIGN_BOTTOM_MID, 0, 0);
+        s_material_gauge[i] = rect(track, 0, 0, 12, 0, C_GREEN_L);
+        lv_obj_set_style_radius(s_material_gauge[i], 3, 0);
+        lv_obj_align(s_material_gauge[i], LV_ALIGN_BOTTOM_MID, 0, 0);
 
-        s_ams_type[ams_idx][i] = label(p, &font_zh14, C_TEXT, LV_TEXT_ALIGN_LEFT);
-        lv_label_set_long_mode(s_ams_type[ams_idx][i], LV_LABEL_LONG_DOT);
-        lv_obj_set_width(s_ams_type[ams_idx][i], 84);   // 材质/料名过长省略号截断
-        lv_obj_align(s_ams_type[ams_idx][i], LV_ALIGN_TOP_LEFT, x + 9, y + 64);
+        s_material_name[i] = label(tile, &font_zh14, C_TEXT, LV_TEXT_ALIGN_LEFT);
+        lv_label_set_long_mode(s_material_name[i], LV_LABEL_LONG_DOT);
+        lv_obj_set_width(s_material_name[i], 84);
+        lv_obj_set_pos(s_material_name[i], 8, 63);
+        s_material_remain[i] = label(tile, &font_zh14, C_DIM, LV_TEXT_ALIGN_LEFT);
+        lv_obj_set_pos(s_material_remain[i], 8, 81);
 
-        s_ams_remain[ams_idx][i] = label(p, &font_zh14, C_DIM, LV_TEXT_ALIGN_LEFT);
-        lv_obj_align(s_ams_remain[ams_idx][i], LV_ALIGN_TOP_LEFT, x + 9, y + 82);
-
-        // 活动标记(色块右上角绿点)
-        s_ams_mark[ams_idx][i] = rect(p, x + 60, y + 2, 8, 8, C_GREEN);
-        lv_obj_set_style_radius(s_ams_mark[ams_idx][i], LV_RADIUS_CIRCLE, 0);
-        lv_obj_add_flag(s_ams_mark[ams_idx][i], LV_OBJ_FLAG_HIDDEN);
+        s_material_mark[i] = rect(tile, 59, 1, 8, 8, C_GREEN);
+        lv_obj_set_style_radius(s_material_mark[i], LV_RADIUS_CIRCLE, 0);
+        lv_obj_add_flag(s_material_mark[i], LV_OBJ_FLAG_HIDDEN);
     }
+}
+
+static void refresh_materials(const bambu_tray_t *trays, int count, bool external, const char *status)
+{
+    const char *active_name = NULL;
+    for (int i = 0; i < count; i++) {
+        const bambu_tray_t *slot = &trays[i];
+        bool used = slot->is_used;
+        lv_obj_set_flag(s_material_card[i], LV_OBJ_FLAG_HIDDEN, external && !used);
+        if (external && !used) continue;
+        const char *name = slot->tray_name[0] ? slot->tray_name : slot->tray_type;
+        if (used && slot->active && name[0]) active_name = name;
+
+        uint32_t swc = used ? (slot->color_valid ? slot->tray_color : 0x22303F)
+                            : 0x141C26;
+        lv_obj_set_style_bg_color(s_material_swatch[i], lv_color_hex(swc), 0);
+        lv_obj_set_style_border_color(s_material_swatch[i], lv_color_hex(slot->active ? C_GREEN_L : C_LINE), 0);
+        lv_obj_set_flag(s_material_mark[i], LV_OBJ_FLAG_HIDDEN, !slot->active);
+
+        const char *short_name = !external && slot->tray_type[0] ? slot->tray_type : name;
+        lv_label_set_text(s_material_name[i], used ? short_name : "-");
+        lv_obj_set_style_text_color(s_material_name[i], lv_color_hex(slot->tray_type[0] ? C_TEXT : C_CYAN), 0);
+
+        int pct = slot->tray_pct;
+        if (used && pct >= 0) {
+            lv_label_set_text_fmt(s_material_remain[i], slot->tray_weight > 0 ? "%dg" : "%d%%",
+                                  slot->tray_weight > 0 ? slot->tray_remain : pct);
+        } else {
+            lv_label_set_text(s_material_remain[i], used ? "--" : "空槽");
+        }
+        int height = pct > 0 ? (pct > 100 ? 52 : pct * 52 / 100) : 0;
+        lv_obj_set_height(s_material_gauge[i], height);
+        lv_obj_align(s_material_gauge[i], LV_ALIGN_BOTTOM_MID, 0, 0);
+        lv_obj_set_style_bg_color(s_material_gauge[i], lv_color_hex(pct > 20 ? C_GREEN_L : C_YELLOW), 0);
+    }
+    if (active_name) lv_label_set_text_fmt(s_material_status, "在用 %s", active_name);
+    else lv_label_set_text(s_material_status, status);
 }
 
 static void refresh_ams(const bambu_state_t *st, int ams_idx, int total_ams)
 {
     const bambu_ams_t *a = &st->ams[ams_idx];
-    char t[80];
-
-    if (!a->present) {
-        // 外部料筒
-        lv_label_set_text(s_ams_title[ams_idx], "外部料筒");
-    } else {
-        if (a->humidity_raw > 0 && a->temp > 0)
-            snprintf(t, sizeof(t), "AMS %d · %d台 · 湿%d%% · %d°",
-                     ams_idx + 1, total_ams, a->humidity_raw, a->temp);
-        else if (a->temp > 0)
-            snprintf(t, sizeof(t), "AMS %d · %d台 · 干燥%d · %d°",
-                     ams_idx + 1, total_ams,
-                     a->humidity >= 0 ? a->humidity : 0, a->temp);
-        else
-            snprintf(t, sizeof(t), "AMS %d · %d台 · 干燥%d",
-                     ams_idx + 1, total_ams,
-                     a->humidity >= 0 ? a->humidity : 0);
-        lv_label_set_text(s_ams_title[ams_idx], t);
-    }
-
-    // 副标题:卡片里只有 6 个字的空间,完整料名放这里
-    char sub[56];
-    const char *active_name = NULL;
-    for (int i = 0; i < 4; i++) {
-        if (a->tray[i].active && a->tray[i].is_used) {
-            // 手动耗材没有 tray_id_name,退回材质名(如 PLA),别显示空的"在用 "
-            active_name = a->tray[i].tray_name[0] ? a->tray[i].tray_name
-                                                  : a->tray[i].tray_type;
-            break;
-        }
-    }
-    if (active_name && active_name[0]) snprintf(sub, sizeof(sub), "在用 %s", active_name);
-    else if (!a->present)              snprintf(sub, sizeof(sub), "外部料筒 · 无 AMS 数据");
-    else                               snprintf(sub, sizeof(sub), "在用 --");
-    lv_label_set_text(s_ams_sub[ams_idx], sub);
-
-    for (int i = 0; i < 4; i++) {
-        const bambu_tray_t *slot = &a->tray[i];
-        bool used = slot->is_used;
-        // 色块(color_valid 区分"无色"与纯黑,纯黑料显示真黑色)
-        uint32_t swc = used ? (slot->color_valid ? slot->tray_color : 0x22303F)
-                            : 0x141C26;
-        lv_obj_set_style_bg_color(s_ams_swatch[ams_idx][i], lv_color_hex(swc), 0);
-        // 活动槽高亮边框
-        uint32_t bcol = slot->active ? C_GREEN_L : C_LINE;
-        lv_obj_set_style_border_color(s_ams_swatch[ams_idx][i], lv_color_hex(bcol), 0);
-        // 活动标记(右上角绿点)
-        if (slot->active) lv_obj_remove_flag(s_ams_mark[ams_idx][i], LV_OBJ_FLAG_HIDDEN);
-        else              lv_obj_add_flag(s_ams_mark[ams_idx][i], LV_OBJ_FLAG_HIDDEN);
-
-        // 有 tray_type 显示材质(PLA/PETG);X2D/AMS2 只有 tray_name(料名),用青色区分
-        const char *label_txt = "-";
-        if (used)
-            label_txt = slot->tray_type[0] ? slot->tray_type : slot->tray_name;
-        lv_label_set_text(s_ams_type[ams_idx][i], label_txt);
-        lv_obj_set_style_text_color(s_ams_type[ams_idx][i],
-            lv_color_hex(slot->tray_type[0] ? C_TEXT : C_CYAN), 0);
-        if (used) {
-            // 有余量数据 → 克数(整卷克数 × 剩余百分比);整卷克数未知 → 百分比;
-            // 手动耗材/无 RFID 料卷 remain=-1 → 余量未知显示 "--"(材质与颜色照常显示)
-            if (slot->tray_pct >= 0)
-                snprintf(t, sizeof(t), slot->tray_weight > 0 ? "%dg" : "%d%%",
-                         slot->tray_weight > 0 ? slot->tray_remain : slot->tray_pct);
-            else
-                strcpy(t, "--");
-        } else {
-            strcpy(t, "空槽");
-        }
-        lv_label_set_text(s_ams_remain[ams_idx][i], t);
-
-        // 余量竖条按整卷百分比(0~100)填充:250g 小卷半满也显示半格,
-        // 不会像按"克/1000"那样几乎全空。低于 20% 转黄提醒。
-        int p = slot->tray_pct;
-        int gh = (p > 0) ? (p > 100 ? 52 : p * 52 / 100) : 0;
-        lv_obj_set_height(s_ams_gauge[ams_idx][i], gh);
-        lv_obj_align(s_ams_gauge[ams_idx][i], LV_ALIGN_BOTTOM_MID, 0, 0);
-        lv_obj_set_style_bg_color(s_ams_gauge[ams_idx][i],
-            lv_color_hex(p > 20 ? C_GREEN_L : (p > 0 ? C_YELLOW : C_LINE)), 0);
-    }
+    if (!a->present)
+        lv_label_set_text_fmt(s_material_title, "AMS %d", ams_idx + 1);
+    else if (a->humidity_raw > 0 && a->temp > 0)
+        lv_label_set_text_fmt(s_material_title, "AMS %d · %d台 · 湿%d%% · %d°",
+                              ams_idx + 1, total_ams, a->humidity_raw, a->temp);
+    else if (a->temp > 0)
+        lv_label_set_text_fmt(s_material_title, "AMS %d · %d台 · 干燥%d · %d°",
+                              ams_idx + 1, total_ams, a->humidity >= 0 ? a->humidity : 0, a->temp);
+    else
+        lv_label_set_text_fmt(s_material_title, "AMS %d · %d台 · 干燥%d",
+                              ams_idx + 1, total_ams, a->humidity >= 0 ? a->humidity : 0);
+    refresh_materials(a->tray, BAMBU_TRAY_MAX, false, "在用 --");
 }
 
 // ------------------------------------------------------------ 设备页
@@ -990,21 +954,28 @@ static void refresh_all(void)
     bool changed = !s_prev_valid || memcmp(&s_prev, &st, sizeof(st)) != 0;
     if (changed) { s_prev = st; s_prev_valid = true; }
 
-    // 已收到数据但 ams_count=0(外部料筒)时也保留 1 个料槽页。
     int previous_slot = s_slot[s_cur];
     int wanted_slot = s_restore_slot >= 0 ? s_restore_slot : previous_slot;
     int ams_pages = st.ams_count;
-    if (ams_pages > 4) ams_pages = 4;
-    if (ams_pages == 0 && st.gcode_state[0]) ams_pages = 1;
+    if (ams_pages > BAMBU_AMS_MAX) ams_pages = BAMBU_AMS_MAX;
+    bool external_loaded = false;
+    for (int i = 0; i < BAMBU_EXTERNAL_MAX; i++) {
+        if (st.external_trays[i].is_used) external_loaded = true;
+    }
+    // 无 AMS 的打印机保留耗材入口，即使暂未拿到料筒信息。
+    bool show_external = external_loaded || (ams_pages == 0 && st.gcode_state[0]);
     if (s_restore_slot >= 0) {
-        if (wanted_slot >= 2 && wanted_slot <= 5 && !st.ams_topology_known) {
+        if (wanted_slot >= 2 && wanted_slot <= 5 && !st.ams_topology_known &&
+            !(wanted_slot == 2 && ams_pages == 0 && external_loaded)) {
             // G-code deltas can arrive before AMS topology. Keep the saved
             // slot pending until an explicit (possibly empty) array arrives.
             if (ams_pages < wanted_slot - 1) ams_pages = wanted_slot - 1;
-        } else {
+        } else if (wanted_slot != EXTERNAL_SLOT || st.external_reported || external_loaded) {
             s_restore_slot = -1;
         }
     }
+    // 旧版本把无 AMS 的外部料筒记为 AMS1，延续其保存的页面偏好。
+    if (wanted_slot == 2 && ams_pages == 0 && show_external) wanted_slot = EXTERNAL_SLOT;
     // 相机始终排在导航第二项，实体槽位保持不变，供重启恢复。
     {
         int n = 0;
@@ -1012,6 +983,7 @@ static void refresh_all(void)
         s_slot[n++] = CAMERA_SLOT;
         s_slot[n++] = 1;
         for (int i = 0; i < ams_pages; i++) s_slot[n++] = 2 + i;
+        if (show_external) s_slot[n++] = EXTERNAL_SLOT;
         s_slot[n++] = 6;                 // 设备页实体
         s_pages_n = n;
     }
@@ -1037,6 +1009,11 @@ static void refresh_all(void)
     case 0: refresh_progress(&st); break;
     case 1: refresh_temp(&st); break;
     case 6: refresh_device(&st); break;
+    case EXTERNAL_SLOT: {
+        const char *status = st.ams_active ? "在用 AMS" : external_loaded ? "" : "未上报耗材";
+        refresh_materials(st.external_trays, BAMBU_EXTERNAL_MAX, true, status);
+        break;
+    }
     case CAMERA_SLOT: break;
     default: refresh_ams(&st, s_slot[s_cur] - 2, ams_pages); break;
     }
@@ -1218,7 +1195,8 @@ static void apply_page_vis(int show)
         app_camera_start(s_midx, 0, CAMERA_VIEW_Y, 240, CAMERA_VIEW_H);
     } else if (show == 0) page_progress_build(page);
     else if (show == 1) page_temp_build(page);
-    else if (show >= 2 && show <= 5) page_ams_build(page, show - 2);
+    else if (show >= 2 && show <= 5) page_material_build(page, false);
+    else if (show == EXTERNAL_SLOT) page_material_build(page, true);
     else if (show == 6) page_device_build(page);
     lv_obj_remove_flag(page, LV_OBJ_FLAG_HIDDEN);
     s_dirty = true;
@@ -1233,11 +1211,11 @@ static void show_page(int idx)
     apply_page_vis(show);
     s_cur = idx;
     ESP_LOGI("printer", "page=%d slot=%d", idx+1, show);
-    remember_view();
+    if (s_restore_slot < 0) remember_view();
     request_refresh();      // 延到 LVGL 任务里重绘(不在按键回调里干重活)
 }
 
-// 详情页(8 个实体页)按需构建/释放:
+// 详情页按需构建/释放:
 // LVGL 内存池紧张,概览页与详情页对象绝不能共存 —— 切换时一建一删;
 // AMS 页也按需建(2 台 AMS 不建 4 页,空页白吃池内存曾把池压到 98% 导致渲染崩溃)。
 // 新页一律先隐藏:页面背景透明,可见的新页会直接叠画在当前页上

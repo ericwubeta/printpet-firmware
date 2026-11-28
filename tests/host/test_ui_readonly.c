@@ -161,7 +161,8 @@ static void set_fixture(int ams_count, bool reported)
 
 static void verify_cycle(int page_count, bool screenshots)
 {
-    char pages[8][4096], current[4096];
+    char pages[9][4096], current[4096];
+    assert(page_count <= (int)(sizeof(pages) / sizeof(pages[0])));
     for (int i = 0; i < page_count; i++) {
         signature(pages[i], sizeof(pages[i]));
         assert(camera_active == (i == 1));
@@ -189,6 +190,60 @@ static void verify_cycle(int page_count, bool screenshots)
     unsigned before = refresh_requests;
     press(BSP_BTN_OK, BSP_BTN_CLICK); assert(refresh_requests == before + 1);
     press(BSP_BTN_DOWN, BSP_BTN_CLICK);
+}
+
+static void exercise_external_pages(void)
+{
+    char current[4096];
+    set_fixture(4, true);
+    bambu_state_t *st = &states[0];
+    st->external_reported = true;
+    st->external_trays[0] = (bambu_tray_t){.tray_name = "Black PLA", .tray_pct = -1,
+        .color_valid = true, .is_used = true, .active = true};
+    st->external_trays[1] = (bambu_tray_t){.tray_type = "ASA", .tray_color = 0xddeeff,
+        .tray_pct = 32, .color_valid = true, .is_used = true};
+    app_printer_enter(); advance(100);
+    verify_cycle(9, false);
+    press(BSP_BTN_UP, BSP_BTN_CLICK); // Device
+    press(BSP_BTN_UP, BSP_BTN_CLICK); // External spools after AMS4
+    signature(current, sizeof(current));
+    assert(saved_view.slot == PRINTER_VIEW_EXTERNAL_SLOT);
+    assert(strstr(current, "外挂耗材") && strstr(current, "在用 Black PLA"));
+    assert(strstr(current, "ASA") && strstr(current, "32%") && strstr(current, "--\n"));
+    capture("core-external-with-ams");
+    const uint8_t *black = &screen[(125 * 240 + 49) * 3];
+    assert(black[0] == 0 && black[1] == 0 && black[2] == 0);
+    app_printer_exit();
+
+    // Keep a saved external page pending across an early report without material data.
+    restore_view = true;
+    set_fixture(1, true);
+    app_printer_enter(); advance(100);
+    assert(saved_view.slot == PRINTER_VIEW_EXTERNAL_SLOT);
+    signature(current, sizeof(current));
+    assert(!strstr(current, "外挂耗材"));
+    st->external_reported = true;
+    st->external_trays[0] = (bambu_tray_t){.tray_name = "PLA Glow", .tray_pct = -1, .is_used = true};
+    st->ams_active = true;
+    advance(1100);
+    signature(current, sizeof(current));
+    assert(strstr(current, "外挂耗材") && strstr(current, "PLA Glow") && strstr(current, "在用 AMS"));
+    app_printer_exit();
+
+    // An old installation may have saved its single external spool as slot 2.
+    set_fixture(0, true); saved_view.slot = 2;
+    st->ams_topology_known = true;
+    st->external_reported = true;
+    st->external_trays[0] = (bambu_tray_t){.tray_type = "TPU", .tray_pct = 0, .is_used = true};
+    app_printer_enter(); advance(100);
+    signature(current, sizeof(current));
+    assert(saved_view.slot == PRINTER_VIEW_EXTERNAL_SLOT);
+    assert(strstr(current, "外挂耗材") && strstr(current, "TPU") && strstr(current, "0%"));
+    assert(!strstr(current, "在用 TPU"));
+    capture("core-external-only");
+    app_printer_exit();
+    restore_view = false;
+    puts("PASS: standalone and coexisting external pages; saved view, colour and unknown weight");
 }
 
 int main(void)
@@ -219,6 +274,7 @@ int main(void)
         app_printer_exit();
         printf("PASS: %d AMS, %d monitoring pages, bidirectional wrap and OK refresh\n", ams, pages);
     }
+    exercise_external_pages();
     for (int count = 2; count <= 4; count++) {
         machine_count = count; set_fixture(1, true);
         for (int round = 0; round < 5; round++) {

@@ -144,7 +144,7 @@ void config_mark_provisioned(void) {
 }
 
 static bool printer_view_valid(const printer_view_config_t *view) {
-    return view && view->version == 1 && view->slot <= 8 && view->overview <= 1 &&
+    return view && view->version == 1 && view->slot <= PRINTER_VIEW_EXTERNAL_SLOT && view->overview <= 1 &&
            view->serial[0] && memchr(view->serial, 0, sizeof(view->serial));
 }
 

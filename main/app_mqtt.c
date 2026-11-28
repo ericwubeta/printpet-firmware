@@ -107,6 +107,11 @@ static void state_reset_online_part(bambu_state_t *st)
     st->ams_topology_known = false;
     st->ams_active = false;
     memset(st->ams, 0, sizeof(st->ams));
+    memset(st->external_trays, 0, sizeof(st->external_trays));
+    st->external_reported = false;
+    st->external_uses_virtual_slots = false;
+    st->material_slot_known = false;
+    st->material_slot_now = 0;
     st->hms_count = 0;
     memset(st->hms, 0, sizeof(st->hms));
 }
@@ -368,6 +373,141 @@ static bool jarray(const char *value, const char *end) {
     return value < end && *value == '[' && end[-1] == ']';
 }
 
+// Unlike jint, a missing or invalid value must not turn into a known 0% or slot 0.
+static int jmaterial_number(const char *value, const char *end, int max, int fallback)
+{
+    if (!value || value >= end) return fallback;
+    if (*value == '"' && end[-1] == '"') { value++; end--; }
+    if (value >= end) return fallback;
+
+    int number = 0;
+    for (; value < end; value++) {
+        int digit = *value - '0';
+        if (digit < 0 || digit > 9 || number > (max - digit) / 10) return fallback;
+        number = number * 10 + digit;
+    }
+    return number;
+}
+
+static int virtual_tray_index(int id)
+{
+    if (id == 0xfe00 || id == 0xff00) id >>= 8;
+    return id == 254 || id == 255 ? id - 254 : -1;
+}
+
+static void merge_external_tray(bambu_tray_t *slot, const char *tray, int len)
+{
+    const char *v, *end;
+    char type[sizeof(slot->tray_type)] = "";
+    char name[32] = "", brand[32] = "";
+    v = jpath(tray, len, "tray_type", &end);
+    bool has_type = v && *v == '"';
+    if (has_type) jstr(v, end, type, sizeof(type));
+    v = jpath(tray, len, "tray_id_name", &end);
+    bool has_name = v && *v == '"';
+    if (has_name) jstr(v, end, name, sizeof(name));
+    v = jpath(tray, len, "tray_sub_brands", &end);
+    bool has_brand = v && *v == '"';
+    if (has_brand) jstr(v, end, brand, sizeof(brand));
+
+    // An empty virtual slot can carry a default colour (even opaque black).
+    const char *material_name = brand[0] ? brand : name;
+    if (has_type && !type[0] && !material_name[0]) {
+        memset(slot, 0, sizeof(*slot));
+        slot->tray_pct = -1;
+        return;
+    }
+    // A changed material type must not inherit the last spool's remaining weight or colour.
+    if (!slot->is_used || (has_type && slot->tray_type[0] && strcmp(slot->tray_type, type))) {
+        memset(slot, 0, sizeof(*slot));
+        slot->tray_pct = -1;
+    }
+    if (has_type) strlcpy(slot->tray_type, type, sizeof(slot->tray_type));
+    if (has_name || has_brand) copy_utf8(material_name, slot->tray_name, sizeof(slot->tray_name));
+
+    v = jpath(tray, len, "tray_color", &end);
+    if (v) {
+        char color[10] = "";
+        jstr(v, end, color, sizeof(color));
+        size_t n = strlen(color);
+        bool valid = (n == 6 || n == 8) && strspn(color, "0123456789abcdefABCDEF") == n;
+        slot->color_valid = valid && (n == 6 || (color[6] != '0' || color[7] != '0'));
+        slot->tray_color = slot->color_valid ? parse_color(color) : 0;
+    }
+    v = jpath(tray, len, "remain", &end);
+    if (v) slot->tray_pct = jmaterial_number(v, end, 100, -1);
+    v = jpath(tray, len, "tray_weight", &end);
+    if (v) slot->tray_weight = jmaterial_number(v, end, INT32_MAX, 0);
+    slot->tray_remain = slot->tray_pct >= 0 && slot->tray_weight > 0
+        ? (int)(((int64_t)slot->tray_weight * slot->tray_pct + 50) / 100) : 0;
+    slot->is_used = slot->tray_type[0] || slot->tray_name[0];
+}
+
+static void merge_external_spools(bambu_state_t *st, const char *pr, int len)
+{
+    const char *end = NULL;
+    const char *array = jpath(pr, len, "vir_slot", &end);
+    if (jarray(array, end)) {
+        const char *tray = jskip_ws(array + 1, end);
+        if (*tray == ']') {
+            memset(st->external_trays, 0, sizeof(st->external_trays));
+            st->external_reported = st->external_uses_virtual_slots = true;
+        }
+        while (tray < end && *tray != ']') {
+            const char *next = jskip_value(tray, end);
+            if (next <= tray) break;
+            if (*tray == '{' && next[-1] == '}') {
+                const char *id_end = NULL;
+                const char *id = jpath(tray, (int)(next - tray), "id", &id_end);
+                int index = virtual_tray_index(jmaterial_number(id, id_end, UINT16_MAX, -1));
+                if (index >= 0) {
+                    if (!st->external_uses_virtual_slots)
+                        memset(st->external_trays, 0, sizeof(st->external_trays));
+                    st->external_reported = st->external_uses_virtual_slots = true;
+                    merge_external_tray(&st->external_trays[index], tray, (int)(next - tray));
+                }
+            }
+            tray = jskip_ws(next, end);
+            if (tray >= end || *tray != ',') break;
+            tray = jskip_ws(tray + 1, end);
+        }
+        return;
+    }
+
+    // Legacy devices describe one spool regardless of the id inside vt_tray.
+    const char *legacy = jpath(pr, len, "vt_tray", &end);
+    if (!st->external_uses_virtual_slots && legacy && legacy < end && *legacy == '{' && end[-1] == '}') {
+        st->external_reported = true;
+        merge_external_tray(&st->external_trays[0], legacy, (int)(end - legacy));
+    }
+}
+
+static void update_material_activity(bambu_state_t *st, const char *pr, int len)
+{
+    const char *end = NULL;
+    const char *value = jpath(pr, len, "ams.tray_now", &end);
+    if (value) {
+        int number = jmaterial_number(value, end, UINT16_MAX, -1);
+        st->material_slot_known = number >= 0;
+        if (st->material_slot_known) st->material_slot_now = (uint16_t)number;
+    }
+    int selected = st->material_slot_known ? st->material_slot_now : -1;
+    st->ams_active = false;
+    for (int a = 0; a < st->ams_count; a++) {
+        for (int t = 0; t < BAMBU_TRAY_MAX; t++) {
+            bool active = st->ams[a].present && selected == a * BAMBU_TRAY_MAX + t;
+            st->ams[a].tray[t].active = active;
+            if (active) st->ams_active = true;
+        }
+    }
+
+    // Plain 255 means no current tray. A packed virtual id explicitly selects a spool.
+    int external_index = selected == 255 ? -1 : virtual_tray_index(selected);
+    if (!st->external_uses_virtual_slots && external_index >= 0) external_index = 0;
+    for (int i = 0; i < BAMBU_EXTERNAL_MAX; i++)
+        st->external_trays[i].active = st->external_trays[i].is_used && i == external_index;
+}
+
 static void parse_report(int idx, const char *data, int len)
 {
     bambu_state_t *const st = &s_state[idx];
@@ -461,13 +601,9 @@ static void parse_report(int idx, const char *data, int len)
 
             if (has_ams) {
             st->ams_topology_known = true;
-            int tray_now = 255;
-            v = jpath(pr, plen, "ams.tray_now", &ve);
-            if (v) tray_now = jint(v, ve, 255);   // jint 已兼容字符串/数字两种值
 
             memset(st->ams, 0, sizeof(st->ams));
             st->ams_count = 0;
-            st->ams_active = false;
 
             for (int i = 0; i < BAMBU_AMS_MAX; i++) {
                 char path[24];
@@ -540,52 +676,9 @@ static void parse_report(int idx, const char *data, int len)
                 if (a->present) st->ams_count = i + 1;
             }
 
-                // tray_now 是全局槽号(AMS1=0..3,AMS2=4..7),据此标记活动槽
-                if (tray_now >= 0 && tray_now < BAMBU_AMS_MAX * BAMBU_TRAY_MAX) {
-                    int ai = tray_now / BAMBU_TRAY_MAX, ti = tray_now % BAMBU_TRAY_MAX;
-                    if (ai < st->ams_count && st->ams[ai].present) {
-                        st->ams[ai].tray[ti].active = true;
-                        st->ams_active = true;
-                    }
-                }
             }   // if (has_ams)
-
-            // 无 AMS → 退回外部料筒 vt_tray,塞进 ams[0] 并标记 present=false 便于 UI 区分
-            if (st->ams_count == 0) {
-                const char *vte = NULL;
-                const char *vt = jpath(pr, plen, "vt_tray", &vte);
-                if (vt && vt < vte) {
-                    int vtlen = (int)(vte - vt);
-                    bambu_ams_t *a = &st->ams[0];
-                    a->present = false;                 // 表示"外部料筒"
-                    a->humidity = -1;
-                    char type[8], color[12];
-                    v = jpath(vt, vtlen, "tray_type", &ve);
-                    if (v && jstr(v, ve, type, sizeof(type)))
-                        strlcpy(a->tray[0].tray_type, type, sizeof(a->tray[0].tray_type));
-                    v = jpath(vt, vtlen, "tray_color", &ve);
-                    if (v && jstr(v, ve, color, sizeof(color))) {
-                        a->tray[0].tray_color = parse_color(color);
-                        a->tray[0].color_valid = (a->tray[0].tray_color != 0);
-                    }
-                    // 同上:remain 是百分比,真实克数需乘 tray_weight
-                    {
-                        int pct = -1, weight = 0;
-                        v = jpath(vt, vtlen, "remain", &ve);
-                        if (v) pct = jint(v, ve, -1);
-                        v = jpath(vt, vtlen, "tray_weight", &ve);
-                        if (v) weight = jint(v, ve, 0);
-                        a->tray[0].tray_pct    = pct;
-                        a->tray[0].tray_weight = weight;
-                        a->tray[0].tray_remain = (pct > 0 && weight > 0)
-                                                 ? (weight * pct + 50) / 100 : 0;
-                    }
-                    a->tray[0].is_used = true;
-                    a->tray[0].active = true;
-                    st->ams_count = 1;
-                    st->ams_active = false;
-                }
-            }
+            merge_external_spools(st, pr, plen);
+            update_material_activity(st, pr, plen);
         }
 
         // ---------- HMS 错误码:数组元素取 code/ecode/hms_code ----------

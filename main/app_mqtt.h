@@ -6,6 +6,7 @@
 
 #define BAMBU_AMS_MAX   4          // 最多同时挂载的 AMS 台数
 #define BAMBU_TRAY_MAX  4          // 每台 AMS 4 个料槽
+#define BAMBU_EXTERNAL_MAX 2       // 独立外挂料位，虚拟槽 254/255
 #define BAMBU_HMS_MAX   4          // 一次最多记录 4 个 HMS 错误码
 #define BAMBU_MACHINE_MAX 4        // 同账号最多监控 4 台打印机
 
@@ -22,7 +23,7 @@ typedef struct {
     bool      color_valid;     // tray_color 有效(区分"无色"与纯黑 000000FF)
     // 拓竹 ams tray 的 remain 是**剩余百分比(0~100)**,不是克;整卷克数在
     // tray_weight(如 "1000")。空槽 remain = -1 且 tray_weight = "0"。
-    int       tray_pct;        // 剩余百分比 0~100;负数 = 空槽(无料卷)
+    int       tray_pct;        // 剩余百分比 0~100;负数 = 未知
     int       tray_weight;     // 整卷标称克数(如 1000),0 = 未知
     int       tray_remain;     // 剩余克数 = tray_weight * tray_pct / 100
     bool      is_used;         // 槽内有料(用于 2D 封面料斗 / 空槽置灰)
@@ -60,9 +61,14 @@ typedef struct {
     int   printer_ip;        // net.info[0].ip 原始整数(小端拼接)
 
     bambu_ams_t ams[BAMBU_AMS_MAX];
-    int   ams_count;         // 在位 AMS 台数(0=外部料筒或未知)
+    int   ams_count;         // 已知的 AMS 槽位范围，不含外挂料筒
     bool  ams_topology_known; // 已收到明确的 AMS 数组（包括空数组），不是普通状态增量
-    bool  ams_active;        // true=AMS 当前料槽;false=外部料筒
+    bool  ams_active;        // 当前使用的槽位属于 AMS
+    bambu_tray_t external_trays[BAMBU_EXTERNAL_MAX];
+    bool  external_reported;
+    bool  external_uses_virtual_slots;
+    bool  material_slot_known;
+    uint16_t material_slot_now;
     bambu_hms_t hms[BAMBU_HMS_MAX];
     int   hms_count;         // 当前 HMS 错误数(0=无)
 } bambu_state_t;
