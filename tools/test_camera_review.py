@@ -154,6 +154,13 @@ class CameraReviewTests(unittest.TestCase):
     def test_camera_reused_session_rejects_changed_identity_during_io(self):
         self.run_case("transport", "identity-io")
 
+    def test_camera_read_ahead_coalesces_small_reads_and_preserves_fragment_order(self):
+        self.run_case("transport", "read-ahead")
+
+    def test_camera_read_ahead_discards_prefetch_on_close_and_cancellation(self):
+        for case in ["read-ahead-close", "read-ahead-cancel"]:
+            self.run_case("transport", case)
+
     def test_camera_reconnect_mode_and_unverified_stream_models_still_close(self):
         self.run_case("transport_reconnect", "reconnect")
         self.run_case("transport", "stream")
