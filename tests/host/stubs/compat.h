@@ -12,7 +12,10 @@ static inline size_t host_strlcpy(char *out, const char *in, size_t size)
     }
     return len;
 }
+// app_telemetry.c has its own local portability definition.
+#if !defined(PRINTPET_USE_NATIVE_TELEMETRY_COPY)
 #define strlcpy host_strlcpy
+#endif
 #ifdef _WIN32
 static inline struct tm *host_localtime_r(const time_t *value, struct tm *out)
 {

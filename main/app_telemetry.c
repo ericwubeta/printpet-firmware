@@ -285,8 +285,14 @@ void app_telemetry_invalidate(bambu_state_t *st)
             st->ams[i].tray[j].pct_valid = false;
         }
     }
-    st->external_tray.updated_ms = UINT64_MAX;
-    st->external_tray.pct_valid = false;
+    st->external_pending_mask = 0;
+    for (int i = 0; i < BAMBU_EXTERNAL_MAX; i++) {
+        bambu_tray_t *tray = &st->external_trays[i];
+        // The configured material and colour can outlast the cloud session.
+        if (tray->is_used) st->external_pending_mask |= (uint8_t)(1u << i);
+        tray->pct_valid = false;
+        tray->tray_remain = 0;
+    }
 }
 
 // Packed protocol integers must be unsigned/integral, never atoi-clamped.
@@ -366,8 +372,98 @@ static void merge_tray(bambu_tray_t *slot, const char *tr, int len, uint64_t now
     v = jpath(tr, len, "tray_weight", &ve);
     if (v) { slot->tray_weight = jint(v, ve, 0); changed = true; }
     if (changed) { slot->reported = true; slot->updated_ms = now_ms; }
-    slot->tray_remain = slot->pct_valid && slot->tray_weight > 0 ? (slot->tray_weight * slot->tray_pct + 50) / 100 : 0;
+    slot->tray_remain = slot->pct_valid && slot->tray_weight > 0 ?
+        (int)(((int64_t)slot->tray_weight * slot->tray_pct + 50) / 100) : 0;
     slot->is_used = slot->tray_type[0] || slot->tray_name[0] || slot->color_valid || slot->tray_weight > 0 || slot->tray_pct > 0;
+}
+
+static bool tray_number(const char *value, const char *end, uint32_t *number)
+{
+    if (!value || !end) return false;
+    if (value && end - value >= 2 && *value == '"' && end[-1] == '"') {
+        value++;
+        end--;
+    }
+    return ju32(value, end, number);
+}
+
+static bool merge_external_tray(bambu_tray_t *slot, const char *tray, int len, uint64_t now_ms)
+{
+    const char *end = NULL;
+    const char *value;
+    char material[sizeof(slot->tray_type)] = "";
+    char name[32] = "", brand[32] = "";
+    value = jpath(tray, len, "tray_type", &end);
+    bool has_type = jstr(value, end, material, sizeof(material));
+    value = jpath(tray, len, "tray_id_name", &end);
+    bool has_name = jstr(value, end, name, sizeof(name));
+    value = jpath(tray, len, "tray_sub_brands", &end);
+    bool has_brand = jstr(value, end, brand, sizeof(brand));
+
+    // Empty virtual slots often carry a default colour, even with no material.
+    if (has_type && !material[0] && !name[0] && !brand[0]) {
+        memset(slot, 0, sizeof(*slot));
+        return true;
+    }
+    if (has_type && slot->tray_type[0] && strcmp(slot->tray_type, material))
+        memset(slot, 0, sizeof(*slot));
+
+    merge_tray(slot, tray, len, now_ms);
+    if (has_brand && (brand[0] || !has_name)) {
+        copy_utf8(brand, slot->tray_name, sizeof(slot->tray_name));
+        slot->reported = true;
+        slot->updated_ms = now_ms;
+    }
+    value = jpath(tray, len, "remain", &end);
+    uint32_t percent;
+    if (value && (!tray_number(value, end, &percent) || percent > 100)) {
+        slot->pct_valid = false;
+        slot->tray_remain = 0;
+    }
+    slot->is_used = slot->tray_type[0] || slot->tray_name[0];
+    return has_type || name[0] || brand[0];
+}
+
+static void merge_external_spools(bambu_state_t *st, const char *pr, int plen, uint64_t now_ms)
+{
+    const char *end;
+    const char *array = jpath(pr, plen, "vir_slot", &end);
+    if (array && *array == '[') {
+        const char *tray = jskip_ws(array + 1, end);
+        while (tray < end && *tray != ']') {
+            const char *next = jskip_value(tray, end);
+            if (next <= tray) break;
+            if (*tray == '{') {
+                const char *id_end = NULL;
+                const char *id_value = jpath(tray, (int)(next - tray), "id", &id_end);
+                uint32_t id;
+                if (tray_number(id_value, id_end, &id) && id <= UINT16_MAX) {
+                    // Studio accepts a plain virtual ID or an encoded AMS/slot pair.
+                    if (id > UINT8_MAX) id = (id >> 8) + (id & UINT8_MAX);
+                    if (id == 254 || id == 255) {
+                        if (!st->external_uses_virtual_slots) {
+                            memset(st->external_trays, 0, sizeof(st->external_trays));
+                            st->external_pending_mask = 0;
+                            st->external_uses_virtual_slots = true;
+                        }
+                        unsigned index = id - 254;
+                        if (merge_external_tray(&st->external_trays[index], tray, (int)(next - tray), now_ms))
+                            st->external_pending_mask &= (uint8_t)~(1u << index);
+                    }
+                }
+            }
+            tray = jskip_ws(next, end);
+            if (tray >= end || *tray != ',') break;
+            tray = jskip_ws(tray + 1, end);
+        }
+        return;
+    }
+
+    // Legacy reports describe one virtual slot. Its id is not a second spool.
+    const char *legacy = jpath(pr, plen, "vt_tray", &end);
+    if (!st->external_uses_virtual_slots && legacy && *legacy == '{' &&
+        merge_external_tray(&st->external_trays[0], legacy, (int)(end - legacy), now_ms))
+        st->external_pending_mask &= (uint8_t)~1u;
 }
 
 static void merge_materials(bambu_state_t *st, const char *pr, int plen, uint64_t now_ms)
@@ -435,15 +531,7 @@ static void merge_materials(bambu_state_t *st, const char *pr, int plen, uint64_
             if (st->ams[a].tray[t].active) st->ams_active = true;
         }
     }
-    if (!count) {
-        const char *te, *tr = jpath(pr, plen, "vt_tray", &te);
-        if (tr) {
-            merge_tray(&st->external_tray, tr, (int)(te - tr), now_ms);
-            st->external_tray.active = true;
-            st->ams_active = false; st->ams_updated_ms = now_ms;
-        }
-        st->ams[0].tray[0] = st->external_tray;
-    }
+    merge_external_spools(st, pr, plen, now_ms);
 }
 
 

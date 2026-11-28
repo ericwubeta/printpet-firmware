@@ -1,10 +1,10 @@
-# PrintPet Spirit 2.0.3
+# PrintPet Spirit 2.0.6
 
 [English](README.md) | 简体中文
 
-2.0.3 修复从监控重新进入配网后发不出短信验证码的问题。在菜单选「配网」，设备会重启进入配网页。登录成功后自动回监控，也可在设备上长按 OK，沿用已有账号退出配网。六位精灵、短语音和大肥鱼终端开机继续可用。
+2.0.6 在 AMS 页面之外增加了外挂耗材页。云端重连时保留上次读取的料名和颜色，收到新状态后刷新。本版也处理了读取拓竹云状态时内存不足导致的连接中断。
 
-社区单文件继续使用[首装进度页](docs/COMMUNITY-INSTALL.md)，刷入后需要重新配网及登录。[完整安装与恢复 ZIP](https://github.com/ericwubeta/printpet-firmware/releases/tag/v2.0.3) 采用标准引导和分地址写入，按安装说明可保留现有设置。
+本版社区单文件使用[首装进度页](docs/COMMUNITY-INSTALL.md)，刷入后需要重新配网及登录。六位精灵、短语音和大肥鱼终端开机继续可用。
 
 面向拓竹打印机的只读监控固件，运行于第三方FoloToy AI Passport（ESP32-C3、8MiB Flash、无PSRAM）。本项目不制造硬件，与FoloToy、Bambu Lab无官方关联。
 
@@ -36,7 +36,7 @@ python tools/build_bundle.py --build build --output dist --stock-bootloader STOC
 
 ## 验证范围
 
-正式包采用实测的同一份 2.0.3 应用。它在一台设备上完成了仅应用区升级，读回确认原有配置和原厂身份区保持一致，且重新配网、短信接收、重启恢复监控均通过。完整 ZIP 和社区单文件的验证范围及校验值见 [2.0.3 发布页](https://github.com/ericwubeta/printpet-firmware/releases/tag/v2.0.3)。
+本版应用在一台设备上完成仅应用区升级。X2D 外挂夜光料正常显示，连云后观察 312 秒，未复现掉线或接收内存错误。社区单文件的首装和中断恢复已在 QEMU 验证。 [验证范围与校验值](docs/COMMUNITY-VALIDATION.json)
 
 软件、继承代码与媒体的许可范围见 [LICENSING.md](LICENSING.md)。
 

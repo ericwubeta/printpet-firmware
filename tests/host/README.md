@@ -2,7 +2,7 @@
 
 These checks use dummy printer/account data and never connect to Bambu Cloud or a printer.
 
-`test_mqtt_readonly` compiles the actual `main/app_mqtt.c` byte-for-byte with transport, timer and configuration fixtures. It parses every outgoing JSON payload and requires only `pushing.command = pushall`, the expected request topic, QoS 0 and retain 0. It exercises initial connection, manual refresh, invalid indices, timer polling and reconnection for 1–4 printers, and checks incoming telemetry still updates the intended snapshot.
+`test_mqtt_readonly` compiles the actual `main/app_mqtt.c` and telemetry parser with transport, timer and configuration fixtures. It checks that outgoing JSON is limited to `pushall` and `get_version` on the correct topic. It exercises 1–4 printers, boot-time client ID uniqueness, an immediate connect callback, polling, transport disconnect and reconnect, retention and replacement of external spool data, and isolation between printer snapshots.
 
 `test_ui_readonly` compiles the actual Core page implementation and LVGL. It covers the no-report page set, 0–4 AMS, forward/backward wrapping, progress ETA toggling, detail-page refresh and 2–4-printer overview/detail reentry. No control label/object may be constructed. Generated PPM captures contain only synthetic fixtures.
 

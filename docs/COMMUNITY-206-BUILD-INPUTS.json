@@ -1,0 +1,9 @@
+{
+  "format": "printpet-selected-build-v1",
+  "version": "2.0.6",
+  "target": "esp32c3",
+  "flashBytes": 8388608,
+  "applicationBytes": 4176528,
+  "applicationSha256": "3bcd231854718ef4bae68b0d09c1ad0472dbefd6b71af6faa2dc3cb8bf32459b",
+  "resourcesSha256": "b07a354f3fd0edcfe90c21381c00f5d341ddc831aaf08a604c74d8d5a801fd5d"
+}

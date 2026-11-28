@@ -1,8 +1,9 @@
-# Spirit 2.0.3 community single-file installer
+# Spirit 2.0.6 community single-file installer
 
-This branch builds Spirit 2.0.3 with the SMS fix for reopened setup. The app is
-bound to its exact SHA and version by an explicit input manifest. The Da Fei Yu
-terminal startup and character resource bytes are unchanged from 2.0.2.
+This branch builds the Spirit 2.0.6 community installer. Users can view external
+spools alongside AMS, see the last-known spool during reconnect, and avoid a
+receiver allocation failure that previously interrupted cloud monitoring. The
+application is bound to its exact SHA and version by an explicit input manifest.
 Historical tags and release files are unchanged. The community artifact uses its
 own first-boot installer; the separate sparse recovery ZIP uses a standard loader.
 
@@ -86,7 +87,7 @@ validation report for the exact artifact hashes and actual results. QEMU and
 models do not establish physical flash brownout behavior or physical-device
 acceptance. No device connection or flash operation is authorized by this file.
 
-The selected 2.0.3 application SHA256 is
-`d571d9ad249cf53cc06a8db3db07be89d2afaed2abfc6d3b11ba8c78d5fc6f88`;
+The selected 2.0.6 application SHA256 is
+`3bcd231854718ef4bae68b0d09c1ad0472dbefd6b71af6faa2dc3cb8bf32459b`;
 resources SHA256 is
 `b07a354f3fd0edcfe90c21381c00f5d341ddc831aaf08a604c74d8d5a801fd5d`.

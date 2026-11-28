@@ -43,7 +43,7 @@ def main():
     if a.inputs_manifest:
         selected = json.loads(a.inputs_manifest.read_text(encoding='utf-8'))
         require(selected.get('format') == 'printpet-selected-build-v1', 'Unknown build input manifest')
-        require(selected.get('version') in {'2.0.2', '2.0.3'}, 'Unsupported selected application version')
+        require(selected.get('version') in {'2.0.2', '2.0.3', '2.0.6'}, 'Unsupported selected application version')
         require(selected.get('target') == 'esp32c3' and selected.get('flashBytes') == 0x800000,
                 'Selected build targets the wrong hardware')
         require(selected.get('resourcesSha256') == expected['resources'], 'Wrong fixed resource selection')

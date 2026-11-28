@@ -11,13 +11,20 @@ set(CORE_ROOT "${CMAKE_CURRENT_LIST_DIR}/../..")
 # even when a developer has a private main/secrets.h in their local checkout.
 configure_file("${CORE_ROOT}/main/app_mqtt.c" "${CMAKE_CURRENT_BINARY_DIR}/app_mqtt_under_test.c" COPYONLY)
 add_executable(test_mqtt_readonly test_mqtt_readonly.c
-    "${CMAKE_CURRENT_BINARY_DIR}/app_mqtt_under_test.c" "${CJSON_DIR}/cJSON.c")
+    "${CMAKE_CURRENT_BINARY_DIR}/app_mqtt_under_test.c" "${CJSON_DIR}/cJSON.c"
+    "${CORE_ROOT}/main/app_telemetry.c" "${CORE_ROOT}/main/nozzle_schema_decode.c"
+    "${CORE_ROOT}/main/spirit_dispatch.c" "${CORE_ROOT}/main/app_spirit_logic.c")
+set_source_files_properties("${CORE_ROOT}/main/app_telemetry.c" PROPERTIES
+    COMPILE_DEFINITIONS PRINTPET_USE_NATIVE_TELEMETRY_COPY)
 target_include_directories(test_mqtt_readonly PRIVATE stubs "${CORE_ROOT}/main" "${CJSON_DIR}")
 if(MSVC)
-    target_compile_options(test_mqtt_readonly PRIVATE /utf-8 /UNDEBUG "/FI${CMAKE_CURRENT_LIST_DIR}/stubs/compat.h")
+    target_compile_options(test_mqtt_readonly PRIVATE /experimental:c11atomics /utf-8 /UNDEBUG "/FI${CMAKE_CURRENT_LIST_DIR}/stubs/compat.h")
     target_compile_definitions(test_mqtt_readonly PRIVATE _CRT_SECURE_NO_WARNINGS)
 else()
     target_compile_options(test_mqtt_readonly PRIVATE -UNDEBUG -include "${CMAKE_CURRENT_LIST_DIR}/stubs/compat.h")
+    if(UNIX)
+        target_link_libraries(test_mqtt_readonly PRIVATE m)
+    endif()
 endif()
 add_test(NAME mqtt_readonly COMMAND test_mqtt_readonly)
 

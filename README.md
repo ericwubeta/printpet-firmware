@@ -1,14 +1,15 @@
-# PrintPet Spirit 2.0.3
+# PrintPet Spirit 2.0.6
 
 English | [简体中文](README.zh_CN.md)
 
-Spirit 2.0.3 fixes SMS verification when setup is reopened from monitoring.
-Choose “配网” in the menu to restart into setup. Log in to resume monitoring,
-or hold OK on the device to leave setup with the existing account. Six spirits,
-short voice prompts and the Da Fei Yu terminal-style startup are still available.
+Spirit 2.0.6 shows external spools on their own page alongside AMS. During a
+cloud reconnect, the page keeps the last read spool names and colours until a
+new report arrives. This update also addresses a memory allocation failure that
+could interrupt monitoring while reading cloud status.
 
-The separate [community installer](docs/COMMUNITY-INSTALL.md) shows first-install
-progress and requires setting up Wi-Fi and the account again. The [recovery ZIP](https://github.com/ericwubeta/printpet-firmware/releases/tag/v2.0.3) uses the standard bootloader and preserves existing local configuration during a compatible installation.
+The [community installer](docs/COMMUNITY-INSTALL.md) shows first-install progress
+and requires setting up Wi-Fi and the account again. Six spirits, short voice
+prompts and the Da Fei Yu terminal-style startup are still available.
 
 Read-only Bambu printer monitoring on third-party FoloToy AI Passport hardware: ESP32-C3, 8MiB flash, no PSRAM. No official FoloToy or Bambu Lab affiliation.
 
@@ -36,7 +37,7 @@ idf.py build
 python tools/build_bundle.py --build build --output dist --stock-bootloader STOCK_BOOTLOADER.bin
 ```
 
-On one device, the exact 2.0.3 application passed the app-only update, configuration and factory-region readback, reopened setup, SMS delivery and cloud reconnection. The separate complete ZIP and single-file installer have their own validation results. See the [2.0.3 release](https://github.com/ericwubeta/printpet-firmware/releases/tag/v2.0.3) for their scope and checksums.
+On one device, the exact 2.0.6 application passed an app-only update and displayed an X2D glow filament spool. No cloud disconnect or receive allocation error was observed in a 312-second connected window. The community package passed simulated installation and interruption recovery. [Validation and checksums](docs/COMMUNITY-VALIDATION.json)
 
 See [firmware licensing](LICENSING.md) for terms covering the software, inherited code and media.
 

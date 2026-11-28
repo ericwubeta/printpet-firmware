@@ -1,35 +1,25 @@
 {
-  "version": "2.0.3",
-  "applicationSha256": "d571d9ad249cf53cc06a8db3db07be89d2afaed2abfc6d3b11ba8c78d5fc6f88",
-  "applicationBytes": 4174144,
-  "actualDevice": {
-    "method": "application-only upgrade on one AI Passport with an existing configuration",
-    "savedSettingsAndVendorRegionReadbackUnchanged": true,
-    "reopenedSetupHttpsPassed": true,
-    "oneSmsReceived": true,
-    "resumedCloudMonitoring": true
+  "version": "2.0.6",
+  "publishedBase": "2.0.3",
+  "application": {
+    "sha256": "3bcd231854718ef4bae68b0d09c1ad0472dbefd6b71af6faa2dc3cb8bf32459b",
+    "bytes": 4176528,
+    "testedOnOneDeviceViaAppOnlyUpdate": true,
+    "retainedSettingsAndIdentityVerified": true,
+    "x2dGlowFilamentVisibleConfirmedByUser": true,
+    "connectedObservationSeconds": 312,
+    "cloudDisconnects": 0,
+    "wifiDisconnects": 0,
+    "tlsErrors": 0
   },
-  "completeZip": {
-    "file": "PrintPet-Spirit-2.0.3-install-recovery.zip",
-    "bytes": 3053803,
-    "sha256": "54be6320490eea1a46c5a539e2bf0853785ee39a53d54d16bf46fba23bcc7b0e",
-    "crcAndManifestPassed": true,
-    "offlineInstallerValidationPassed": true,
-    "physicalInstallScriptRun": false
-  },
-  "community": {
-    "file": "PrintPet-Spirit-2.0.3-community.bin",
+  "communityInstaller": {
+    "file": "PrintPet-Spirit-2.0.6-community.bin",
+    "sha256": "9d662c01eda42d8eb85718754faa2fe75e65f9368f7a4dc44ffc1b279f7faa1a",
     "bytes": 3211264,
-    "sha256": "611f9484696080f712e856e20764e40ae3cf591d74001fbb02d328bd9767f235",
     "qemuFirstInstall": true,
     "qemuApplicationAndResourceInterruptionRecovery": true,
-    "syntheticVendorRegionUnchanged": true,
-    "factoryIdentityProtectedRange": [
-      "0x310000",
-      "0x370000"
-    ],
-    "settingsRegionBlank": true,
+    "simulatedFactoryIdentityByteForByteUnchanged": true,
+    "genericUserSettingsBlank": true,
     "physicalInstallOfThisContainer": false
-  },
-  "source": "https://github.com/ericwubeta/printpet-firmware/tree/v2.0.3"
+  }
 }

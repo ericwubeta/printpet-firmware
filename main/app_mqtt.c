@@ -7,11 +7,14 @@
 #include "app_mqtt.h"
 #include "app_telemetry.h"
 
+#include <stdatomic.h>
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
 #include "app_config.h"
+#include "app_wifi.h"
 #include "esp_crt_bundle.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_random.h"
 #include "esp_system.h"
@@ -19,15 +22,26 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "mqtt_client.h"
+#include "mbedtls/ssl.h"
 
 #include "secrets.h"
 
 static const char *TAG = "app_mqtt";
 
+static esp_err_t mqtt_tls_attach(void *config)
+{
+    esp_err_t result = esp_crt_bundle_attach(config);
+    if (result != ESP_OK) return result;
+    // Bound the per-record TLS allocation without reducing the complete MQTT
+    // report buffer. The China-region broker negotiates this fragment length.
+    return mbedtls_ssl_conf_max_frag_len(config, MBEDTLS_SSL_MAX_FRAG_LEN_4096) == 0 ? ESP_OK : ESP_FAIL;
+}
+
 #define BROKER_HOST "cn.mqtt.bambulab.com"
 #define PUSH_PERIOD_US (30ULL * 1000000ULL)
 
 static esp_mqtt_client_handle_t s_cli;
+static atomic_bool s_connected;
 static SemaphoreHandle_t s_lock;
 static bambu_state_t s_state[BAMBU_MACHINE_MAX];   // 每台机器独立状态槽
 static int64_t s_conn_since;      // 云连接建立的时间戳(us)
@@ -81,6 +95,9 @@ static void state_reset_online_part(bambu_state_t *st)
     st->ams_count = 0;
     st->ams_active = false;
     memset(st->ams, 0, sizeof(st->ams));
+    memset(st->external_trays, 0, sizeof(st->external_trays));
+    st->external_uses_virtual_slots = false;
+    st->external_pending_mask = 0;
     st->hms_count = 0;
     memset(st->hms, 0, sizeof(st->hms));
 }
@@ -98,7 +115,7 @@ static void parse_report(int idx, const char *data, int len)
 
 static void push_pushall(int idx)
 {
-    if (!s_cli || idx < 0 || idx >= s_mcount) return;
+    if (!atomic_load(&s_connected) || idx < 0 || idx >= s_mcount) return;
     char topic[48], payload[40];
     snprintf(topic, sizeof(topic), "device/%s/request", sn_at(idx));
     snprintf(payload, sizeof(payload), "{\"pushing\":{\"command\":\"pushall\"}}");
@@ -121,6 +138,7 @@ static void on_mqtt(void *handler_arg, esp_event_base_t base, int32_t id, void *
             }
             xSemaphoreGive(s_lock);
         }
+        atomic_store(&s_connected, true);
         // 每台机器各订阅 report topic,否则收不到推送
         for (int i = 0; i < s_mcount; i++) {
             char rt[48];
@@ -133,8 +151,13 @@ static void on_mqtt(void *handler_arg, esp_event_base_t base, int32_t id, void *
             esp_mqtt_client_publish(s_cli, request, "{\"info\":{\"sequence_id\":\"0\",\"command\":\"get_version\"}}", 0, 0, 0);
         }
         break;
-    case MQTT_EVENT_DISCONNECTED:
+    case MQTT_EVENT_DISCONNECTED: {
+        atomic_store(&s_connected, false);
+        bool wifi_up = app_wifi_connected();
+        ESP_LOGW(TAG, "Cloud disconnect wifi=%d rssi=%d uptime_s=%d",
+                 wifi_up, wifi_up ? app_wifi_rssi() : 0, app_mqtt_uptime_sec());
         ESP_LOGW(TAG, "拓竹云断开,自动重连");
+        s_conn_since = 0;
         if (xSemaphoreTake(s_lock, pdMS_TO_TICKS(100)) == pdTRUE) {
             for (int i = 0; i < s_mcount; i++) {
                 s_state[i].cloud = BAMBU_CLOUD_CONNECTING;
@@ -143,6 +166,21 @@ static void on_mqtt(void *handler_arg, esp_event_base_t base, int32_t id, void *
                 app_telemetry_invalidate(&s_state[i]);
             }
             xSemaphoreGive(s_lock);
+        }
+        break;
+    }
+    case MQTT_EVENT_ERROR:
+        if (e && e->error_handle) {
+            const esp_mqtt_error_codes_t *error = e->error_handle;
+            if (error->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
+                ESP_LOGW(TAG, "Cloud transport error type=%d esp=0x%x tls=0x%x sock=%d free=%u largest=%u",
+                         error->error_type, (unsigned)error->esp_tls_last_esp_err,
+                         (unsigned)error->esp_tls_stack_err, error->esp_transport_sock_errno,
+                         (unsigned)esp_get_free_heap_size(),
+                         (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+            } else {
+                ESP_LOGW(TAG, "Cloud protocol error type=%d code=%d", error->error_type, error->connect_return_code);
+            }
         }
         break;
     case MQTT_EVENT_DATA: {
@@ -170,7 +208,9 @@ static void push_timer_cb(void *arg)
 
 void app_mqtt_start(void)
 {
+    atomic_store(&s_connected, false);
     s_lock = xSemaphoreCreateMutex();
+    if (!s_lock) return;
     for (int i = 0; i < BAMBU_MACHINE_MAX; i++) {
         state_reset_online_part(&s_state[i]);
         s_state[i].cloud = BAMBU_CLOUD_OFF;
@@ -229,14 +269,17 @@ void app_mqtt_start(void)
         return;
     }
 
-    char cid[20];
-    snprintf(cid, sizeof(cid), "bbl_%06X", (unsigned)(esp_timer_get_time() >> 10) & 0xFFFFFF);
+    // Similar boot timings on different units must not produce the same ID.
+    char cid[21];
+    unsigned high = (unsigned)esp_random();
+    unsigned low = (unsigned)esp_random();
+    snprintf(cid, sizeof(cid), "bbl_%08X%08X", high, low);
 
     esp_mqtt_client_config_t cfg = { 0 };
     cfg.broker.address.hostname = BROKER_HOST;
     cfg.broker.address.transport = MQTT_TRANSPORT_OVER_SSL;
     cfg.broker.address.port = 8883;
-    cfg.broker.verification.crt_bundle_attach = &esp_crt_bundle_attach;
+    cfg.broker.verification.crt_bundle_attach = mqtt_tls_attach;
     cfg.credentials.username = s_uid;
     cfg.credentials.authentication.password = s_tok;
     cfg.credentials.client_id = cid;   // IDF 5.5: client_id 在 credentials 下
@@ -245,13 +288,17 @@ void app_mqtt_start(void)
     cfg.session.keepalive = 60;
 
     s_cli = esp_mqtt_client_init(&cfg);
+    if (!s_cli) {
+        ESP_LOGE(TAG, "Could not initialize cloud client");
+        return;
+    }
     esp_mqtt_client_register_event(s_cli, MQTT_EVENT_ANY, on_mqtt, NULL);
-    esp_mqtt_client_start(s_cli);
 
     if (xSemaphoreTake(s_lock, portMAX_DELAY) == pdTRUE) {
         for (int i = 0; i < s_mcount; i++) s_state[i].cloud = BAMBU_CLOUD_CONNECTING;
         xSemaphoreGive(s_lock);
     }
+    esp_mqtt_client_start(s_cli);
 
     const esp_timer_create_args_t t = { .name = "bambu_push", .callback = push_timer_cb };
     esp_timer_handle_t h;

@@ -67,11 +67,45 @@ static void materials(void)
     merge(&s,"{\"print\":{\"ams\":{\"ams_exist_bits\":1}}}",4000);
     assert(s.ams_count==1 && s.ams[0].id==0);
     merge(&s,"{\"print\":{\"ams\":{\"ams_exist_bits\":0},\"vt_tray\":{\"tray_type\":\"PLA\",\"tray_color\":\"000000FF\",\"remain\":50,\"tray_weight\":1000}}}",5000);
-    assert(s.ams_count==0 && s.ams[0].tray[0].tray_remain==500 && s.ams[0].tray[0].color_valid);
+    assert(s.ams_count==0 && s.external_trays[0].tray_remain==500 && s.external_trays[0].color_valid);
     merge(&s,"{\"print\":{\"mc_percent\":40}}",6000);
-    assert(s.ams[0].tray[0].tray_remain==500 && s.ams[0].tray[0].pct_updated_ms==5000);
+    assert(s.external_trays[0].tray_remain==500 && s.external_trays[0].pct_updated_ms==5000);
     merge(&s,"{\"print\":{\"vt_tray\":{\"remain\":40}}}",7000);
-    assert(s.ams[0].tray[0].tray_remain==400 && !strcmp(s.ams[0].tray[0].tray_type,"PLA"));
+    assert(s.external_trays[0].tray_remain==400 && !strcmp(s.external_trays[0].tray_type,"PLA"));
+
+    // Legacy spool details must survive with AMS attached. A full newer X2D
+    // report can then list two independent virtual slots, in either order.
+    merge(&s,"{\"print\":{\"ams\":{\"ams_exist_bits\":\"1\",\"tray_now\":\"0\",\"ams\":[{\"id\":\"0\",\"tray\":[{\"id\":\"0\",\"tray_type\":\"PETG\"}]}]},\"vt_tray\":{\"tray_type\":\"TPU\",\"remain\":-1}}}",8000);
+    assert(s.ams_count==1 && s.ams_active && !strcmp(s.ams[0].tray[0].tray_type,"PETG"));
+    assert(!strcmp(s.external_trays[0].tray_type,"TPU") && !s.external_trays[0].pct_valid);
+    merge(&s,"{\"print\":{\"vir_slot\":[{\"id\":\"255\",\"tray_type\":\"ASA\",\"tray_color\":\"222222FF\",\"remain\":32},{\"id\":254,\"tray_type\":\"PLA\",\"tray_id_name\":\"PLA\",\"tray_sub_brands\":\"PLA Glow\",\"tray_color\":\"C0DDEEFF\",\"remain\":null}],\"vt_tray\":{\"tray_type\":\"WRONG\"}}}",9000);
+    assert(s.ams_count==1 && !strcmp(s.ams[0].tray[0].tray_type,"PETG"));
+    assert(s.external_trays[0].is_used && !strcmp(s.external_trays[0].tray_name,"PLA Glow"));
+    assert(s.external_trays[0].tray_color==0xc0ddee && !s.external_trays[0].pct_valid);
+    assert(!strcmp(s.external_trays[1].tray_type,"ASA") && s.external_trays[1].tray_pct==32);
+    merge(&s,"{\"print\":{\"vir_slot\":[{\"id\":\"65024\",\"remain\":\"0\"}]}}",10000);
+    assert(!strcmp(s.external_trays[0].tray_name,"PLA Glow") && s.external_trays[0].pct_valid && s.external_trays[0].tray_pct==0);
+    assert(s.external_trays[1].updated_ms==9000 && s.ams[0].tray[0].updated_ms==8000);
+    merge(&s,"{\"print\":{\"vir_slot\":[{\"id\":\"255\",\"tray_type\":\"\",\"tray_color\":\"000000FF\"}]}}",11000);
+    assert(s.external_trays[0].is_used && !s.external_trays[1].is_used);
+    merge(&s,"{\"print\":{\"ams\":{\"ams_exist_bits\":0},\"vt_tray\":{\"tray_type\":\"STALE\"}}}",12000);
+    assert(s.ams_count==0 && !strcmp(s.external_trays[0].tray_name,"PLA Glow"));
+    // The MQTT disconnect and reconnect both invalidate volatile fields. An
+    // unrelated print delta cannot erase the last known spool identity.
+    app_telemetry_invalidate(&s);
+    assert(s.external_trays[0].is_used && !strcmp(s.external_trays[0].tray_name,"PLA Glow"));
+    assert(s.external_trays[0].tray_color==0xc0ddee && !s.external_trays[0].pct_valid);
+    assert(s.external_pending_mask==1);
+    app_telemetry_invalidate(&s);
+    merge(&s,"{\"print\":{\"gcode_state\":\"RUNNING\",\"mc_percent\":42}}",13000);
+    assert(!strcmp(s.external_trays[0].tray_name,"PLA Glow") && s.external_pending_mask==1);
+    merge(&s,"{\"print\":{\"vir_slot\":[{\"id\":254,\"remain\":37}]}}",13500);
+    assert(s.external_pending_mask==1 && s.external_trays[0].tray_pct==37);
+    merge(&s,"{\"print\":{\"vir_slot\":[{\"id\":254,\"tray_type\":\"\",\"tray_color\":\"000000FF\"}]}}",14000);
+    assert(!s.external_trays[0].is_used && !s.external_trays[1].is_used && s.external_pending_mask==0);
+    s=(bambu_state_t){0};
+    merge(&s,"{\"print\":{\"vt_tray\":{\"id\":\"255\",\"tray_type\":\"PLA\"}}}",13000);
+    assert(s.external_trays[0].is_used && !s.external_trays[1].is_used);
 }
 
 static spirit_status_t status(const char *state)

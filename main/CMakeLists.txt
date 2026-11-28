@@ -38,4 +38,4 @@ idf_component_register(
 # 固件版本宏(设备页标题显示)。ESP-IDF 在组件作用域里拿不到 PROJECT_VERSION
 # (2.1.6 及更早版本编译出来的 FW_VERSION 是空串,设备页只显示 “X2D v”),
 # 所以这里写死版本号;改顶层 project() VERSION 时必须同步改这一行。
-target_compile_definitions(${COMPONENT_LIB} PUBLIC FW_VERSION="2.0.3")
+target_compile_definitions(${COMPONENT_LIB} PUBLIC FW_VERSION="2.0.6")

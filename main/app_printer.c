@@ -26,7 +26,10 @@
 #include "esp_random.h"
 #include "esp_timer.h"
 
-#define PAGE_MAX 10          // Progress +4 temperature pairs +4 AMS + device.
+#define EXTERNAL_PAGE 10     // Leave the existing physical page IDs intact.
+#define PAGE_MAX (EXTERNAL_PAGE + 1)
+#define EXTERNAL_MATERIAL_VIEW BAMBU_AMS_MAX
+#define MATERIAL_VIEWS (BAMBU_AMS_MAX + 1)
 #define MSG_MAX  48
 #ifndef CHATTER_PERIOD_MS
 #define CHATTER_PERIOD_MS 180000ULL   // Text-only low-frequency bubble interval.
@@ -74,7 +77,7 @@ static lv_obj_t *s_ov_pct[BAMBU_MACHINE_MAX];
 
 
 
-static int s_slot[PAGE_MAX];   // 导航序号 → 实体页槽位(实体固定:0进度 1温度 2~5AMS 6设备)
+static int s_slot[PAGE_MAX];   // 导航顺序映射到固定页面，外挂耗材位于 AMS 之后。
 static lv_timer_t *s_timer;
 static lv_timer_t *s_fast;     // 30ms 快速重绘:承接按键回调里延后的重绘请求
 static lv_timer_t *s_retry;    // 单个延后刷新,页面销毁前取消
@@ -108,8 +111,10 @@ static lv_obj_t *s_temp_title;
 static lv_obj_t *s_head_compact[4]; // one compact row per nozzle, no pages
 static lv_obj_t *s_chamber_lbl;
 static lv_obj_t *s_bed_value, *s_chamber_value;
-static lv_obj_t *s_ams_title[4];
-static lv_obj_t *s_ams_swatch[4][4], *s_ams_type[4][4], *s_ams_remain[4][4];
+static lv_obj_t *s_ams_title[MATERIAL_VIEWS];
+static lv_obj_t *s_ams_swatch[MATERIAL_VIEWS][BAMBU_TRAY_MAX];
+static lv_obj_t *s_ams_type[MATERIAL_VIEWS][BAMBU_TRAY_MAX];
+static lv_obj_t *s_ams_remain[MATERIAL_VIEWS][BAMBU_TRAY_MAX];
 static lv_obj_t *s_d_sn, *s_d_model, *s_d_cloud, *s_d_wifi, *s_d_ip, *s_d_hms_lbl;
 static lv_obj_t *s_sig_bar[4]; // local WiFi RSSI bars
 static lv_obj_t *s_report_name, *s_report_value, *s_report_line;
@@ -710,25 +715,73 @@ static void page_ams_build(lv_obj_t *p, int ams_idx)
 {
     s_ams_title[ams_idx] = label(p, &font_zh14, C_TEXT, LV_TEXT_ALIGN_CENTER);
     lv_obj_set_pos(s_ams_title[ams_idx], 10, 4); lv_obj_set_width(s_ams_title[ams_idx], 220);
-    // Character on top, a 2x2 material summary at the bottom. One compact line
-    // per slot (name + percent); the weight is intentionally dropped.
+    bool external = ams_idx == EXTERNAL_MATERIAL_VIEW;
+    int rows = external ? BAMBU_EXTERNAL_MAX : BAMBU_TRAY_MAX;
+    // AMS keeps its 2x2 grid. The external view has room for full spool names.
     app_spirit_view_create(p, 64, 30);
-    for (int i = 0; i < 4; i++) {
-        int col = i % 2, row = i / 2;
-        int x = 14 + col * 114;
-        int y = 190 + row * 24;
+    for (int i = 0; i < rows; i++) {
+        int x = external ? 14 : 14 + (i % 2) * 114;
+        int y = 190 + (external ? i : i / 2) * 24;
         s_ams_swatch[ams_idx][i] = rect(p, x, y + 3, 12, 12, C_LINE);
         s_ams_type[ams_idx][i] = label(p, &font_zh14, C_TEXT, LV_TEXT_ALIGN_LEFT);
-        lv_obj_set_pos(s_ams_type[ams_idx][i], x + 18, y); lv_obj_set_width(s_ams_type[ams_idx][i], 58);
+        lv_obj_set_pos(s_ams_type[ams_idx][i], x + 18, y);
+        lv_obj_set_width(s_ams_type[ams_idx][i], external ? 156 : 58);
         lv_label_set_long_mode(s_ams_type[ams_idx][i], LV_LABEL_LONG_DOT);
         s_ams_remain[ams_idx][i] = label(p, &font_zh14, C_DIM, LV_TEXT_ALIGN_RIGHT);
-        lv_obj_set_pos(s_ams_remain[ams_idx][i], x + 78, y); lv_obj_set_width(s_ams_remain[ams_idx][i], 30);
+        lv_obj_set_pos(s_ams_remain[ams_idx][i], x + (external ? 173 : 78), y);
+        lv_obj_set_width(s_ams_remain[ams_idx][i], external ? 38 : 30);
     }
 }
 
-static void refresh_ams(const bambu_state_t *st, int ams_idx, int total_ams)
+static void refresh_material_tile(int view, int row, const bambu_tray_t *tray, bool visible,
+                                  bool online, bool external, uint64_t now)
 {
-    (void)total_ams;
+    lv_obj_set_hidden(s_ams_swatch[view][row], !visible);
+    lv_obj_set_hidden(s_ams_type[view][row], !visible);
+    lv_obj_set_hidden(s_ams_remain[view][row], !visible);
+    if (!visible) return;
+    bool fresh = online && app_telemetry_fresh(tray->reported, tray->updated_ms, now);
+    bool show_material = fresh || (external && tray->is_used);
+    const char *name = "--";
+    if (show_material) {
+        if (external && tray->tray_name[0]) name = tray->tray_name;
+        else if (tray->tray_type[0]) name = tray->tray_type;
+        else if (tray->tray_name[0]) name = tray->tray_name;
+        else if (!external) name = tray->is_used ? "耗材" : "空槽";
+    }
+    lv_label_set_text_fmt(s_ams_type[view][row], "%s%d %s", !external && tray->active ? "*" : "", row + 1, name);
+    bool show_color = show_material && tray->color_valid && (!external || tray->is_used);
+    lv_obj_set_style_bg_color(s_ams_swatch[view][row], lv_color_hex(show_color ? tray->tray_color : C_LINE), 0);
+    if (fresh && app_telemetry_fresh(tray->pct_valid, tray->pct_updated_ms, now))
+        lv_label_set_text_fmt(s_ams_remain[view][row], "%d%%", tray->tray_pct);
+    else lv_label_set_text(s_ams_remain[view][row], "--");
+}
+
+static bool has_external_spool(const bambu_state_t *st)
+{
+    for (int i = 0; i < BAMBU_EXTERNAL_MAX; i++)
+        if (st->external_trays[i].is_used) return true;
+    return false;
+}
+
+static void refresh_external_spools(const bambu_state_t *st)
+{
+    bool empty = !has_external_spool(st);
+    bool online = st->cloud == BAMBU_CLOUD_ONLINE;
+    uint64_t now = spirit_now_ms();
+    bool cached = false;
+    for (int i = 0; i < BAMBU_EXTERNAL_MAX; i++) {
+        const bambu_tray_t *tray = &st->external_trays[i];
+        bool confirmed = online && !(st->external_pending_mask & (1u << i));
+        if (tray->is_used && (!confirmed || !app_telemetry_fresh(tray->reported, tray->updated_ms, now)))
+            cached = true;
+        refresh_material_tile(EXTERNAL_MATERIAL_VIEW, i, tray, tray->is_used || (empty && i == 0), confirmed, true, now);
+    }
+    lv_label_set_text(s_ams_title[EXTERNAL_MATERIAL_VIEW], cached ? "外挂耗材 · 上次读取" : "外挂耗材");
+}
+
+static void refresh_ams(const bambu_state_t *st, int ams_idx)
+{
     const bambu_ams_t *a = &st->ams[ams_idx];
     uint64_t now = spirit_now_ms(); bool online = st->cloud == BAMBU_CLOUD_ONLINE;
     bool humidity_fresh = online && app_telemetry_fresh(a->present, a->humidity_updated_ms, now);
@@ -736,22 +789,9 @@ static void refresh_ams(const bambu_state_t *st, int ams_idx, int total_ams)
     char humidity[32] = "湿度 --";
     if (raw_fresh && a->humidity_raw >= 0) snprintf(humidity, sizeof(humidity), "湿度 %d%%", a->humidity_raw);
     else if (humidity_fresh && a->humidity > 0) snprintf(humidity, sizeof(humidity), "湿度档 %d", a->humidity);
-    if (a->present) lv_label_set_text_fmt(s_ams_title[ams_idx], "AMS %u · %s", a->id + 1, humidity);
-    else lv_label_set_text(s_ams_title[ams_idx], "外部料筒");
-    for (int i = 0; i < 4; i++) {
-        const bambu_tray_t *t = &a->tray[i];
-        bool visible = a->present || i == 0;
-        lv_obj_set_hidden(s_ams_swatch[ams_idx][i], !visible);
-        lv_obj_set_hidden(s_ams_type[ams_idx][i], !visible);
-        lv_obj_set_hidden(s_ams_remain[ams_idx][i], !visible);
-        bool fresh = online && app_telemetry_fresh(t->reported, t->updated_ms, now);
-        const char *name = t->tray_type[0] ? t->tray_type : t->tray_name[0] ? t->tray_name : t->is_used ? "耗材" : "空槽";
-        lv_label_set_text_fmt(s_ams_type[ams_idx][i], "%s%d %s", t->active ? "*" : "", i + 1, fresh ? name : "--");
-        lv_obj_set_style_bg_color(s_ams_swatch[ams_idx][i], lv_color_hex(fresh && t->color_valid ? t->tray_color : C_LINE), 0);
-        bool pct_fresh = fresh && app_telemetry_fresh(t->pct_valid, t->pct_updated_ms, now);
-        if (pct_fresh) lv_label_set_text_fmt(s_ams_remain[ams_idx][i], "%d%%", t->tray_pct);
-        else lv_label_set_text(s_ams_remain[ams_idx][i], "--");
-    }
+    lv_label_set_text_fmt(s_ams_title[ams_idx], "AMS %u · %s", a->id + 1, humidity);
+    for (int i = 0; i < BAMBU_TRAY_MAX; i++)
+        refresh_material_tile(ams_idx, i, &a->tray[i], true, online, false, now);
 }
 
 static void page_device_build(lv_obj_t *p)
@@ -914,19 +954,21 @@ static void refresh_all(void)
     }
 
     int previous_slot = s_cur >= 0 && s_cur < s_pages_n ? s_slot[s_cur] : 0;
-    int ams_pages = st.ams_count > 0 ? st.ams_count : 1;
-    if (ams_pages > 4) ams_pages = 4;
+    int ams_pages = st.ams_count > 0 ? st.ams_count : 0;
+    if (ams_pages > BAMBU_AMS_MAX) ams_pages = BAMBU_AMS_MAX;
     int temp_pages = 1; // 1-4 nozzles share one compact page; no pager
     int n = 0; s_slot[n++] = 0;
     for (int i = 0; i < temp_pages; i++) s_slot[n++] = 1 + i;
     for (int i = 0; i < ams_pages; i++) s_slot[n++] = 5 + i;
+    if (ams_pages == 0 || has_external_spool(&st)) s_slot[n++] = EXTERNAL_PAGE;
     s_slot[n++] = 9; s_pages_n = n;
     for (int i = 0; i < n; i++) if (s_slot[i] == previous_slot) { s_cur = i; break; }
     if (s_cur >= n) s_cur = n - 1;
     apply_page_vis(s_slot[s_cur]);
     int slot = s_slot[s_cur];
     s_temperature_pair = slot >= 1 && slot <= 4 ? slot - 1 : 0;
-    app_spirit_view_context(st.model, slot >= 1 && slot <= 4 ? 6 : slot >= 5 && slot <= 8 ? 7 : -1, now_ms);
+    app_spirit_view_context(st.model, slot >= 1 && slot <= 4 ? 6 :
+                            ((slot >= 5 && slot <= 8) || slot == EXTERNAL_PAGE) ? 7 : -1, now_ms);
     app_spirit_view_update(s_midx, &status, now_ms);
 
     refresh_header(&st);
@@ -936,7 +978,8 @@ static void refresh_all(void)
 
     if (slot == 0) refresh_progress(&st);
     else if (slot <= 4) refresh_temp(&st);
-    else if (slot <= 8) refresh_ams(&st, slot - 5, ams_pages);
+    else if (slot <= 8) refresh_ams(&st, slot - 5);
+    else if (slot == EXTERNAL_PAGE) refresh_external_spools(&st);
     else refresh_device(&st);
 
     refresh_bubble(now_ms);
@@ -1128,6 +1171,7 @@ static void apply_page_vis(int show)
         if (show == 0) page_progress_build(s_pages[show]);
         else if (show <= 4) page_temp_build(s_pages[show]);
         else if (show <= 8) page_ams_build(s_pages[show], show - 5);
+        else if (show == EXTERNAL_PAGE) page_ams_build(s_pages[show], EXTERNAL_MATERIAL_VIEW);
         else page_device_build(s_pages[show]);
         s_built_slot = show;
     }
@@ -1165,9 +1209,7 @@ static void show_page(int idx)
 {
     if (idx >= s_pages_n) idx = s_pages_n - 1;
     if (idx < 0) idx = 0;
-    // 导航序号 ≠ 实体槽位。实体固定为 0进度/1温度/2~5AMS/6设备,
-    // 而实际显示哪几页随 AMS 台数变化,必须经 s_slot 映射,否则 AMS 不足 4 台时
-    // 会翻到空 AMS 页,设备页反而永远翻不到。
+    // 实际页序随耗材来源变化，用 s_slot 跳过不存在的 AMS 页。
     int show = (idx >= 0 && idx < s_pages_n && idx < PAGE_MAX) ? s_slot[idx] : 0;
     s_hint_slot = -1;       // an explicit key press re-arms the page dialogue
     apply_page_vis(show);

@@ -7,6 +7,7 @@
 
 #define BAMBU_AMS_MAX   4          // 最多同时挂载的 AMS 台数
 #define BAMBU_TRAY_MAX  4          // 每台 AMS 4 个料槽
+#define BAMBU_EXTERNAL_MAX 2       // 独立的外挂料盘，可与 AMS 同时存在
 #define BAMBU_HMS_MAX   4          // 一次最多记录 4 个 HMS 错误码
 #define BAMBU_MACHINE_MAX 4        // 同账号最多监控 4 台打印机
 
@@ -80,9 +81,11 @@ typedef struct {
     int   printer_ip;        // net.info[0].ip 原始整数(小端拼接)
 
     bambu_ams_t ams[BAMBU_AMS_MAX];
-    bambu_tray_t external_tray;
-    int   ams_count;         // 在位 AMS 台数(0=外部料筒或未知)
-    bool  ams_active;        // true=AMS 当前料槽;false=外部料筒
+    bambu_tray_t external_trays[BAMBU_EXTERNAL_MAX];
+    bool external_uses_virtual_slots;
+    uint8_t external_pending_mask;  // Cached identities awaiting a new spool report.
+    int   ams_count;         // 在位 AMS 台数，外挂料盘不计入
+    bool  ams_active;        // 有 AMS 槽被标为当前供料
     bambu_hms_t hms[BAMBU_HMS_MAX];
     int   hms_count;         // 当前 HMS 错误数(0=无)
 } bambu_state_t;
