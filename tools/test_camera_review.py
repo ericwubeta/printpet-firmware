@@ -61,7 +61,9 @@ class CameraReviewTests(unittest.TestCase):
                       "KEY": function(main, "screen_off_on_key"), "BOOT_KEY": function(main, "boot_key_gesture")},
             "worker": {"READER": reader, "CURRENT": function(sources["camera"], "current"),
                        "CLOSE": function(sources["camera"], "close_camera"),
-                       "STATUS": function(sources["camera"], "status"), "WORKER": function(sources["camera"], "worker")},
+                       "STATUS": function(sources["camera"], "status"),
+                       "RADIO": function(sources["camera"], "camera_receive_power_policy"),
+                       "WORKER": function(sources["camera"], "worker")},
             "transport": {"READER": reader, "CLOSE": function(sources["camera"], "close_camera"),
                           "READ": function(sources["camera"], "read_bytes_inner"),
                           "WRITE": function(sources["camera"], "write_bytes"),
@@ -291,6 +293,10 @@ class CameraReviewTests(unittest.TestCase):
 
     def test_first_offline_poll_does_not_invent_image(self):
         self.run_case("worker", "first-offline")
+
+    def test_camera_usb_low_latency_restores_wifi_policy_on_unplug_and_exit(self):
+        for case in ["radio-usb", "radio-exit"]:
+            self.run_case("worker", case)
 
     def test_state_delta_does_not_cancel_saved_ams4(self):
         self.run_case("topology", "delta-then-topology")

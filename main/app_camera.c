@@ -4,6 +4,7 @@
 #include "app_camera_config.h"
 #include "app_mqtt.h"
 #include "app_wifi.h"
+#include "bsp_battery.h"
 #include "bsp_display.h"
 #include "camera_geometry.h"
 #include "camera_frame.h"
@@ -15,6 +16,7 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "esp_tls.h"
+#include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "mbedtls/md5.h"
@@ -552,6 +554,22 @@ static bool fetch(camera_reader_t *r, bool jpeg_stream) {
     return ok;
 }
 
+static void camera_receive_power_policy(bool usb_preview, wifi_ps_type_t *restore) {
+    if (usb_preview && *restore == WIFI_PS_NONE) {
+        wifi_ps_type_t previous;
+        if (esp_wifi_get_ps(&previous) == ESP_OK && previous != WIFI_PS_NONE &&
+            esp_wifi_set_ps(WIFI_PS_NONE) == ESP_OK) {
+            *restore = previous;
+            ESP_LOGI(TAG, "USB preview enabled low-latency WiFi reception");
+        }
+    } else if (!usb_preview && *restore != WIFI_PS_NONE) {
+        if (esp_wifi_set_ps(*restore) == ESP_OK) {
+            *restore = WIFI_PS_NONE;
+            ESP_LOGI(TAG, "USB preview restored WiFi power saving");
+        }
+    }
+}
+
 static void worker(void *unused) {
     // ESP32 can schedule this task on the other core before xTaskCreate returns.
     // Wait until the owner has published its handle, including the OOM path.
@@ -594,6 +612,7 @@ static void worker(void *unused) {
             (app_mqtt_name(machine) ? app_mqtt_name(machine) : "Printer"), sizeof(s_state.model));
         portEXIT_CRITICAL(&s_guard);
         bool jpeg = r->config.transport == CAMERA_JPEG_STREAM;
+        wifi_ps_type_t restore_ps = WIFI_PS_NONE;
         while (current(r->token)) {
             bool ok = false;
             // This attempt may skip fetch entirely while WiFi is offline.
@@ -601,7 +620,9 @@ static void worker(void *unused) {
             r->drew = false;
             r->error = CAMERA_RETRYING;
             int64_t start = esp_timer_get_time();
-            if (app_wifi_connected()) {
+            bool connected = app_wifi_connected();
+            camera_receive_power_policy(connected && !jpeg && bsp_battery_usb_connected(), &restore_ps);
+            if (connected) {
                 ok = fetch(r, jpeg);
                 if (!ok && !jpeg && r->config.transport == CAMERA_AUTO && !r->drew &&
                     r->error != CAMERA_IDENTITY_ERROR && r->error != CAMERA_MEMORY_ERROR && current(r->token)) {
@@ -627,6 +648,7 @@ static void worker(void *unused) {
                 remaining_ms -= step_ms;
             }
         }
+        camera_receive_power_policy(false, &restore_ps);
     }
     if (r) { close_camera(r); camera_frame_free(&r->frame); free(r->work); free(r); }
     portENTER_CRITICAL(&s_guard);

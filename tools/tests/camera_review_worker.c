@@ -4,9 +4,11 @@
 #include "camera_geometry.h"
 #define JSON_LIMIT 1024
 #define CAMERA_SUCCESS_DELAY_MS 2000
+#define ESP_OK 0
 typedef void *TaskHandle_t;
 typedef void esp_tls_t;
 typedef struct { int unused; } mbedtls_md5_context;
+typedef enum { WIFI_PS_NONE, WIFI_PS_MIN_MODEM, WIFI_PS_MAX_MODEM } wifi_ps_type_t;
 static TaskHandle_t s_task = (void *)1;
 static bool s_starting, s_requested = true, s_refresh;
 static uint32_t s_generation = 7;
@@ -14,6 +16,13 @@ static int s_machine, s_x, s_y = 92, s_width = 240, s_height = 135;
 static camera_state_t s_state;
 static int attempts, fetches;
 static const char *scenario;
+static wifi_ps_type_t wifi_power = WIFI_PS_MAX_MODEM;
+static unsigned power_changes;
+static int esp_wifi_get_ps(wifi_ps_type_t *mode) { *mode = wifi_power; return ESP_OK; }
+static int esp_wifi_set_ps(wifi_ps_type_t mode) { wifi_power = mode; power_changes++; return ESP_OK; }
+static bool bsp_battery_usb_connected(void) {
+    return !strcmp(scenario, "radio-exit") || (!strcmp(scenario, "radio-usb") && attempts == 1);
+}
 /* @READER@ */
 static camera_reader_t *s_verifying;
 static unsigned closed;
@@ -36,6 +45,7 @@ bool camera_config_load(const char *serial, camera_config_t *out) {
 }
 static bool fetch(camera_reader_t *reader, bool jpeg) {
     fetches++;
+    assert(wifi_power == (bsp_battery_usb_connected() ? WIFI_PS_NONE : WIFI_PS_MAX_MODEM));
     reader->tls = (void *)1;
     reader->geometry = (camera_geometry_t){.source_w=1920,.source_h=1080,.width=240,.height=135};
     reader->drew = fetches == 1 || !strcmp(scenario, "partial");
@@ -46,6 +56,7 @@ static void vTaskDelay(int ticks) {
 }
 static TaskHandle_t xTaskGetCurrentTaskHandle(void) { return (void *)1; }
 static void vTaskDelete(void *task) {}
+/* @RADIO@ */
 /* @WORKER@ */
 int main(int argc, char **argv) {
     assert(argc == 2); scenario = argv[1]; worker(NULL);
@@ -59,5 +70,7 @@ int main(int argc, char **argv) {
     }
     assert(s_state.status == CAMERA_RETRYING);
     assert(closed == (fetches ? 1u : 0u));
+    assert(wifi_power == WIFI_PS_MAX_MODEM);
+    assert(power_changes == (!strncmp(scenario, "radio-", 6) ? 2u : 0u));
     return 0;
 }
