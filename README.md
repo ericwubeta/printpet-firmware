@@ -1,4 +1,4 @@
-# PrintPet Core 1.6.1
+# PrintPet Core 1.6.2
 
 English | [简体中文](README.zh_CN.md)
 
@@ -6,15 +6,15 @@ Read-only Bambu printer monitoring on third-party FoloToy AI Passport hardware: 
 
 ## Choose the firmware you prefer
 
-- [Core 1.6.1](https://github.com/ericwubeta/printpet-firmware/releases/tag/v1.6.1): monitoring with optional LAN camera previews, persistent printer/page selection and automatic power-off; fixes weak-AP selection on same-SSID mesh/extender networks. See the [release notes](docs/RELEASE_CORE_1.6.1.md).
+- [Core 1.6.2](https://github.com/ericwubeta/printpet-firmware/releases/tag/v1.6.2): read-only monitoring, a separate external spool page and improvements to optional LAN camera previews. [Release notes](docs/RELEASE_CORE_1.6.2.md)
 - [Core 1.5.2](https://github.com/ericwubeta/printpet-firmware/releases/tag/v1.5.2): the retained compact 1.5.x monitor, without the 1.6.0 camera features.
-- [Spirit 2.0.1](https://github.com/ericwubeta/printpet-firmware/releases/tag/v2.0.1): monitoring plus six characters, state animation and short voice prompts. This renumbers the local 2.2.0 feature set; it does not restore early experimental code.
+- [Spirit 2.0.6](https://github.com/ericwubeta/printpet-firmware/releases/tag/v2.0.6): monitoring with six spirits, state animations and short voice prompts.
 
 These complete releases share the identity-protected layout. Historical tags remain unchanged. The Windows desktop application is separate. No firmware controls printers, includes desktop AI chat, or synchronizes with the desktop app. Core 1.6.0 camera features are not part of the existing Spirit 2.0.1 release.
 
 ## Camera monitoring and power
 
-The second detail page shows the supported printer's LAN JPEG preview with measured FPS and print status. Configure the printer IP/hostname and LAN access code in provisioning. Earlier camera hardware tests covered X2D at about 0.7–1.0 FPS. This release's board/network test did not include a live printer or camera load; other models and A1/P1 streams remain unverified. This is a JPEG preview, not RTSPS/H.264 video.
+The second detail page shows the supported printer's LAN JPEG preview with measured FPS and print status. Configure the printer address and LAN access code in provisioning. A development build with the same camera changes was observed on one X2D during printing. [Test scope](docs/RELEASE_CORE_1.6.2.md)
 
 The device restores the last printer and page on startup. After 10 minutes with the screen off, it enters deep sleep if USB power is undetected and no known print is active. Network monitoring stops in deep sleep; a physical key restarts the device. USB host detection cannot reliably identify an ordinary charger/power bank. See [camera controls and compatibility](docs/CAMERA_UI.md) and [automatic power-off](docs/AUTO_POWEROFF.md).
 

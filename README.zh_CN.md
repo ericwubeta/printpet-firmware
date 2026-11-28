@@ -1,4 +1,4 @@
-# PrintPet Core 1.6.1
+# PrintPet Core 1.6.2
 
 [English](README.md) | 简体中文
 
@@ -6,15 +6,15 @@
 
 ## 两条固件，按喜好选择
 
-- **[Core 1.6.1](https://github.com/ericwubeta/printpet-firmware/releases/tag/v1.6.1)**：只读监控，保留可选局域网相机预览、打印机/页面记忆及自动关机；修复同名Mesh/扩展器网络误选弱节点的问题。详见[更新说明](docs/RELEASE_CORE_1.6.1.md)。
+- **[Core 1.6.2](https://github.com/ericwubeta/printpet-firmware/releases/tag/v1.6.2)**：只读监控，新增独立外挂耗材页，优化可选的局域网相机预览。 [更新说明](docs/RELEASE_CORE_1.6.2.md)
 - **[Core 1.5.2](https://github.com/ericwubeta/printpet-firmware/releases/tag/v1.5.2)**：保留的1.5.x简洁监控版，不含1.6.0新增相机功能。
-- **[Spirit 2.0.1](https://github.com/ericwubeta/printpet-firmware/releases/tag/v2.0.1)**：保留核心监控，加入六位精灵、状态动作、短语音和音量/亮度设置。它沿用此前本地2.2.0功能重新编号，不是旧实验代码回退。
+- **[Spirit 2.0.6](https://github.com/ericwubeta/printpet-firmware/releases/tag/v2.0.6)**：提供六位精灵、状态动作和短语音。
 
 这些完整版本共用身份区保护布局，可以使用对应包的升级模式切换。桌面版仍是独立产品，固件没有桌面AI聊天或两端联动，也不控制打印机。Core 1.6.0相机功能不代表既有Spirit 2.0.1也已加入。历史tag和附件不删改；新用户请选择完整包，不要使用历史裸应用作为通用安装包。
 
 ## 相机监控与自动关机
 
-详情第二页显示支持的打印机局域网JPEG画面、实测帧率和打印信息，需要在配网页设置打印机IP/主机名与LAN访问码。此前相机实测仅覆盖X2D，约0.7–1.0 FPS；本版设备联网测试未包含实时打印和相机负载，其他机型及A1/P1流仍待验证。这是JPEG预览，不解码RTSPS/H.264视频。
+详情第二页显示支持机型的局域网相机画面、实测帧率和打印信息，需要在配网页设置打印机地址和 LAN 访问码。相机改动在一台 X2D 上用同代码开发构建做过短时打印观察。 [验证范围](docs/RELEASE_CORE_1.6.2.md)
 
 设备重启后恢复上次打印机与页面。未检测到USB供电且没有已知的活动任务时，连续息屏10分钟后进入深度睡眠。深睡会关闭网络监控，需实体按键重新开机；USB主机检测不能可靠识别普通充电头或充电宝。详见[相机页面](docs/CAMERA_UI.md)和[自动关机](docs/AUTO_POWEROFF.md)。
 
